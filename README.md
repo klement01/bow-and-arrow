@@ -1,0 +1,2 @@
+# bow-and-arrow
+Implementação do jogo [Bow and Arrow - In Search of the Greatest Archer](https://www.classicdosgames.com/game/Bow_and_Arrow_-_In_Search_of_the_Greatest_Archer.html), feita em C usando arte ASCII. Trabalho final da disciplina de Algoritmos e Programação da UFRGS, semestre 2020/1.
