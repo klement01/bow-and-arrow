@@ -1,54 +1,61 @@
 CC = c99
-_PROG = bow-and-arrow
-_DEPS = Grafico.h Objeto.h Timer.h Vetor.h
-_OBJ = main.o Grafico.o Objeto.o Timer.o Vetor.o
+prog_name = bow-and-arrow
 
 # Baseado em:
 # <https://cs.colby.edu/maxwell/courses/tutorials/maketutor/>
 
 # Usado com todas as configurações de compilação.
-SDIR = src
-IDIR = include
-BDIR = build
-MDIR = materiais
-CFLAGS = -D'_POSIX_C_SOURCE=199309L' -std=c99 -I$(IDIR)
+source_dir = src
+include_dir = include
+build_dir = build
+mat_dir = materiais
+base_flags = -D'_POSIX_C_SOURCE=199309L' -std=c99 -I$(include_dir)
+
+sources = $(wildcard $(source_dir)/*.c)
+headers = $(wildcard $(include_dir)/*.h)
 
 # Configurações específicas de debug.
 # Usar 'make DEBUG=1'
-DEBUG_ROOT = $(BDIR)/debug
-DEBUG_FLAGS = -ggdb -O0
+debug_root = $(build_dir)/debug
+debug_flags = -ggdb -O0
 
 # Configurações específicas de release.
-RELEASE_ROOT = $(BDIR)/release
-RELEASE_FLAGS = -DNDEBUG -g0 -O3
+release_root = $(build_dir)/release
+release_flags = -DNDEBUG -g0 -O3
 
 # Escolhe quais flags especiais usar.
 DEBUG ?= 1
 ifeq ($(DEBUG), 1)
-	SFLAGS = $(DEBUG_FLAGS)
-	ROOT = $(DEBUG_ROOT)
+	special_flags = $(debug_flags)
+	root = $(debug_root)
 else
-	SFLAGS = $(RELEASE_FLAGS)
-	ROOT = $(RELEASE_ROOT)
+	special_flags = $(release_flags)
+	root = $(release_root)
 endif
-ODIR = $(ROOT)/obj
-PROG = $(ROOT)/bin/$(_PROG)
 
-# Deriva os caminhos dos arquivos a partir dos nomes e raizes.
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+binary_dir = $(root)/bin
+object_dir = $(root)/obj
+objects = $(patsubst $(source_dir)/%.c,$(object_dir)/%.o,$(sources))
+CFLAGS = $(base_flags) $(special_flags)
 
 # Compila e linka o programa.
-$(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS) $(SFLAGS)
+# Copia executável para raiz.
+$(prog_name): $(binary_dir)/$(prog_name)
+	cp $^ $@
 
-$(PROG): $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS) $(SFLAGS)
-	cp $(PROG) .
+# Gera executável.
+$(binary_dir)/$(prog_name): $(objects)
+	$(CC) -o $@ $^ $(CFLAGS)
+
+# Gera arquivos objeto.
+$(objects): $(object_dir)/%.o: $(source_dir)/%.c $(headers)
+	$(CC) -o $@ -c $< $(CFLAGS)
+
+#----------------------------------------------------------------------------
 
 # Apaga todos os arquivos das builds.
 # Usar 'make clean'
 .PHONY: clean
 
 clean:
-	find $(BDIR) -type f -exec rm {} \;
+	find $(build_dir) -type f -exec rm {} \;
