@@ -15,6 +15,9 @@ typedef struct
 
 fVetor vfSoma(fVetor v1, fVetor v2);
 fVetor vfSub(fVetor v1, fVetor v2);
+fVetor vfMult(fVetor v1, float c);
+fVetor vfDiv(fVetor v1, float c);
+fVetor vfNeg(fVetor v1);
 
 typedef struct
 {
@@ -24,5 +27,8 @@ typedef struct
 
 iVetor viSoma(iVetor v1, iVetor v2);
 iVetor viSub(iVetor v1, iVetor v2);
+iVetor viMult(iVetor v1, int c);
+iVetor viDiv(iVetor v1, int c);
+iVetor viNeg(iVetor v1);
 
 #endif
