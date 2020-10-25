@@ -15,7 +15,7 @@ typedef struct sNode
   Objeto objeto;
 } Node;
 
-Node *criarNodeAntesDe(Node **proximo, Objeto objeto);
+Node *criarNodeEm(Node **proximo, Objeto objeto);
 void removerNode(Node *node);
 void removerListaDoNode(Node **node);
 

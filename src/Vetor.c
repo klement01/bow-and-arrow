@@ -72,7 +72,7 @@ iVetor viMult(iVetor v1, int c)
   return v;
 }
 
-iVetor vfDiv(iVetor v1, int c)
+iVetor viDiv(iVetor v1, int c)
 {
   iVetor v;
   v.x = v1.x / c;
@@ -80,7 +80,7 @@ iVetor vfDiv(iVetor v1, int c)
   return v;
 }
 
-iVetor vfNeg(iVetor v1)
+iVetor viNeg(iVetor v1)
 {
   iVetor v;
   v.x = -v1.x;

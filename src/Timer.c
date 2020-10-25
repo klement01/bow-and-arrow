@@ -59,10 +59,6 @@ double calcularDeltaTempo()
   <https://man7.org/linux/man-pages/man7/feature_test_macros.7.html>
 */
 
-#if _POSIX_C_SOURCE < 199309L
-#error "Sistemas não-Windows requerem macro _POSIX_C_SOURCE >= 199309L"
-#else
-
 double calcularDeltaTempo()
 {
   static struct timespec t1, t2;
@@ -93,6 +89,5 @@ double calcularDeltaTempo()
 
   return dt;
 }
-#endif
 
 #endif

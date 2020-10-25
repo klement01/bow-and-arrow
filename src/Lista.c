@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-Node *criarNodeAntesDe(Node **pProximo, Objeto objeto)
+Node *criarNodeEm(Node **pProximo, Objeto objeto)
 {
   /*
     Cria espaço na memória para um node de objeto e o coloca
@@ -11,7 +11,7 @@ Node *criarNodeAntesDe(Node **pProximo, Objeto objeto)
     $pProximo. Atualiza $proximo para ser o novo node e o retorna.
   */
 
-  Node *novoObjeto = NULL;
+  Node *novoNode = NULL;
 
   if (pProximo)
   {
@@ -19,33 +19,33 @@ Node *criarNodeAntesDe(Node **pProximo, Objeto objeto)
     Node *proximo = *pProximo;
 
     // Tenta alocar espaço para o objeto no heap.
-    novoObjeto = malloc(sizeof(Node));
-    if (!novoObjeto)
+    novoNode = malloc(sizeof(Node));
+    if (!novoNode)
     {
       perror("Erro alocando memória para objeto.");
       exit(EXIT_FAILURE);
     }
 
     // Configura o novo node.
-    novoObjeto->proximo = proximo;
-    novoObjeto->objeto = objeto;
+    novoNode->proximo = proximo;
+    novoNode->objeto = objeto;
     if (proximo)
     {
       // Se $proximo não for nulo, usa seu valor de anterior
       // e corrige seus ponteiros.
-      novoObjeto->anterior = proximo->anterior;
-      proximo->anterior = novoObjeto;
+      novoNode->anterior = proximo->anterior;
+      proximo->anterior = novoNode;
     }
     else
     {
-      novoObjeto->anterior = NULL;
+      novoNode->anterior = NULL;
     }
 
     // Atualiza $proximo para apontar ao novo objeto.
-    *pProximo = novoObjeto;
+    *pProximo = novoNode;
   }
 
-  return novoObjeto;
+  return novoNode;
 }
 
 void removerNode(Node *node)

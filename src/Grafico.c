@@ -98,14 +98,14 @@ Grafico carregarGrafico(char *caminho)
   // Fecha o arquivo, monta a estrutura do gráfico e retorna.
   fclose(arquivo);
 
-  Grafico grafico = {{numLinhas, numColunas}, str};
+  Grafico grafico = {numLinhas, numColunas, str};
   return grafico;
 }
 
 void descarregarGrafico(Grafico *grafico)
 {
   // Libera o espaço alocado para o gráfico.
-  for (int i = 0; i < grafico->tamanho.x; i++)
+  for (int i = 0; i < grafico->numLinhas; i++)
   {
     free(grafico->str[i]);
   }

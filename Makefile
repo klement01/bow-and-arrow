@@ -18,10 +18,10 @@ headers = $(wildcard $(include_dir)/*.h)
 common_flags = -I$(include_dir) -std=c99 
 
 # Configurações específicas do Linux.
-linux_lib_dir = $(lib_dir)/x11
+linux_lib_dir = $(lib_dir)/linux
 linux_compiler = c99
-linux_flags = -D'XCURSES' -D'_POSIX_C_SOURCE=199309L' -L$(linux_lib_dir)
-linux_libs = -lXCurses -lX11 -Wl,-rpath,'$$ORIGIN'
+linux_flags = -D'_POSIX_C_SOURCE=199309L' -L$(linux_lib_dir)
+linux_libs = -lncurses -lX11 -Wl,-rpath,'$$ORIGIN'
 
 # Configurações específicas do Windows.
 windows_lib_dir = $(lib_dir)/win
@@ -35,12 +35,14 @@ ifeq ($(OS), LINUX)
 	CC = $(linux_compiler)
 	REQ_FLAGS = $(common_flags) $(linux_flags) $(linux_libs)
 	BIN_NAME = $(prog_name)
-	LIB_DIR = $(linux_lib_dir)
+	os_lib_dir = $(linux_lib_dir)
+	os_build_dir = $(build_dir)/linux
 else ifeq ($(OS), WINDOWS)
 	CC = $(windows_compiler)
 	REQ_FLAGS = $(common_flags) $(windows_flags) $(windows_libs)
 	BIN_NAME = $(prog_name).exe
-	LIB_DIR = $(windows_lib_dir)
+	os_lib_dir = $(windows_lib_dir)
+	os_build_dir = $(build_dir)/win
 else
 	$(error Invalid OS)
 endif
@@ -49,13 +51,13 @@ endif
 BUILD_TYPE ?= DEBUG 
 ifeq ($(BUILD_TYPE), DEBUG)
 	SPECIAL_FLAGS = -ggdb -O0
-	root = $(build_dir)/debug
+	root = $(os_build_dir)/debug
 else ifeq ($(BUILD_TYPE), RELEASE)
 	SPECIAL_FLAGS = -DNDEBUG -g0 -O3
-	root = $(build_dir)/release
+	root = $(os_build_dir)/release
 else
 	SPECIAL_FLAGS =
-	root = $(build_dir)/default
+	root = $(os_build_dir)/default
 endif
 
 binary_dir = $(root)/bin
@@ -65,8 +67,8 @@ objects = $(patsubst $(source_dir)/%.c,$(object_dir)/%.o,$(sources))
 # Compila e linka o programa.
 # Copia executável para raiz.
 $(BIN_NAME): $(binary_dir)/$(BIN_NAME)
-	cp $^ $@ 
-	cp $(LIB_DIR)/* .
+	cp $^ $@ 2> /dev/null || :
+	cp $(os_lib_dir)/* . 2> /dev/null || :
 
 # Gera executável.
 $(binary_dir)/$(BIN_NAME): $(objects)

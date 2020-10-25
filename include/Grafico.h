@@ -10,7 +10,8 @@
 
 typedef struct
 {
-  iVetor tamanho;
+  int numLinhas;
+  int numColunas;
   char **str;
 } Grafico;
 
