@@ -8,8 +8,13 @@
 */
 
 /*
-  Retorna o tempo desde a última invocação como uma fração de segundo.
-  Retorna 0 na primeira invocação.
+  Reinicia / inicializa o timer.
+*/
+void reiniciarTimer();
+
+/*
+  Retorna o tempo desde a última invocação ou reset como uma fração de
+  segundo. Retorna um valor indefinido se chamado sem ser resetado.
 */
 double calcularDeltaTempo();
 
