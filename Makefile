@@ -15,16 +15,16 @@ sources = $(wildcard $(source_dir)/*.c)
 headers = $(wildcard $(include_dir)/*.h)
 
 # Configurações universais.
-common_flags = -I$(include_dir) -std=c99 -L.
+common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L.
 
 # Configurações específicas do Linux.
-linux_lib_dir = $(lib_dir)/linux
+linux_lib_dir = $(lib_dir)/linux_so
 linux_compiler = c99
 linux_flags = -D'_POSIX_C_SOURCE=199309L' -L$(linux_lib_dir)
 linux_libs = -lncurses -lX11 -Wl,-rpath,'$$ORIGIN'
 
 # Configurações específicas do Windows.
-windows_lib_dir = $(lib_dir)/win
+windows_lib_dir = $(lib_dir)/win_dll
 windows_compiler = x86_64-w64-mingw32-gcc
 windows_flags = -D'PDC_DLL_BUILD' -L$(windows_lib_dir)
 windows_libs = -lpdcurses 

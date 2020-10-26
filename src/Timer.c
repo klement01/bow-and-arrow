@@ -44,6 +44,7 @@ void reiniciarTimer()
       exit(EXIT_FAILURE);
     }
   }
+  inicializado = true;
 }
 
 double calcularDeltaTempo()

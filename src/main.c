@@ -52,17 +52,19 @@ int main()
     // Configura o novo estado quando há uma troca de estado.
     if (estado != ultimoEstado)
     {
+      // TODO: Código de mudança de estado.
       reiniciarTimer();
     }
     ultimoEstado = estado;
-
+    
     // Calcula o tempo transcorrido desde o último loop.
     double dt = calcularDeltaTempo();
 
-    if (getch() == 'q')
-    {
-      estado = FIM;
-    }
+    // Atualiza e desenha os objetos do jogo.
+    // TODO: Código para atualizar objetos.
+
+    // Atualiza a tela.
+    doupdate();
   }
 
   /*

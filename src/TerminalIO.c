@@ -1,5 +1,6 @@
 #include <TerminalIO.h>
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,12 +11,18 @@ void inicializarTerminal()
   noecho();
   // Esconde o cursor.
   curs_set(0);
-  // Passa as entradas diretamente para o programa.
-  nocbreak();
+  // Passa as entradas sem esperar por newline.
+  cbreak();
   // Permite que a janela receba teclas de função e do teclado.
   keypad(stdscr, true);
   // Desativa a espera por entradas.
   nodelay(stdscr, true);
+  // No PDCurses, tenta redimensionar a tela.
+#ifdef PDCURSES
+  resize_term(N_LINHAS, N_COLUNAS);
+#endif
+  // Atualiza a tela.
+  refresh();
 }
 
 WINDOW *criarJanela(int altura, int largura, int posy, int posx)
@@ -28,6 +35,20 @@ WINDOW *criarJanela(int altura, int largura, int posy, int posx)
 
 bool verificarTamanho()
 {
+  // No PDCurses, o tamanho deve ser atualizado manualmente após
+  // ser alterado. Primeiro, checa se o terminal foi redimensionado
+  // através do getch().
+#ifdef PDCURSES
+  int tecla;
+  do
+  {
+    tecla = getch();
+    if (tecla == KEY_RESIZE)
+    {
+      resize_term(0, 0);
+    }
+  } while (tecla != ERR && tecla != KEY_RESIZE);
+#endif
   return getmaxy(stdscr) == N_LINHAS && getmaxx(stdscr) == N_COLUNAS;
 }
 
@@ -40,7 +61,10 @@ bool corrigirTamanho()
   if (!verificarTamanho())
   {
     houveResize = true;
+
+    // Limpa a tela.
     clear();
+    refresh();
 
     // Dimensóes e posição da janela.
     const int ALTURA = 5, LARGURA = 32;
@@ -59,19 +83,24 @@ bool corrigirTamanho()
       // a move.
       if (nposy != posy || nposx != posx)
       {
-        // Limpa a tela se a janela for movida.
-        delwin(win);
+        // Limpa a tela se a janela for movida e deleta a window.
+        // TODO: corrigir flickering na versão de Windows.
+        if (win)
+        {
+          delwin(win);
+        }
         clear();
         refresh();
+
         // Se o terminal tiver o tamanho necessário, cria uma nova
-        // janela.
+        // window.
         if (nposy >= 0 && nposx >= 0)
         {
           posy = nposy;
           posx = nposx;
           win = criarJanela(ALTURA, LARGURA, posy, posx);
         }
-        // Se não, torna o ponteiro da janela nulo.
+        // Se não, torna o ponteiro da window nulo.
         else
         {
           posy = -1;
@@ -80,9 +109,9 @@ bool corrigirTamanho()
         }
       }
 
-      // Se houver uma janela, mostra informações sobre o estado do
+      // Se houver uma window, mostra informações sobre o estado do
       // terminal nela.
-      if (win != NULL)
+      if (win)
       {
         box(win, 0, 0);
         mvwprintw(win, 1, 2, "Tamanho incorreto da janela");
@@ -128,12 +157,12 @@ bool teclaPressionada(Tecla tecla)
   Display *dsp = XOpenDisplay(NULL);
   if (!dsp)
   {
-    perror("Erro conectado ao servidor X");
+    perror("Erro conectando ao servidor X");
     exit(EXIT_FAILURE);
   }
 
   // Gera vetor de estado do teclado.
-  char kbs[32];
+  uint8_t kbs[32];
   XQueryKeymap(dsp, kbs);
 
   // Transforma o valor $tecla em um código de tecla do X11 e checa
