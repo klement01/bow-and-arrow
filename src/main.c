@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char **argv)
+int main()
 {
   /*
     Setup: carrega todos os recursos e configura os dados
@@ -32,6 +32,9 @@ int main(int argc, char **argv)
   Estado ultimoEstado = FIM;
   int nivel = 1;
 
+  // Entra no modo curses.
+  inicializarTerminal();
+
   /*
     Loop: executa continuamente o código principal do jogo,
     realizando alterações a cada tick de processamento.
@@ -39,14 +42,27 @@ int main(int argc, char **argv)
 
   while (estado != FIM)
   {
-    // Calcula o tempo transcorrido desde o último loop.
-    double dt = calcularDeltaTempo();
+    // Exibe um erro se o tamanho do terminal está incorreto e
+    // reinicia um timer nesse caso.
+    if (corrigirTamanho())
+    {
+      reiniciarTimer();
+    }
 
     // Configura o novo estado quando há uma troca de estado.
     if (estado != ultimoEstado)
     {
+      reiniciarTimer();
     }
     ultimoEstado = estado;
+
+    // Calcula o tempo transcorrido desde o último loop.
+    double dt = calcularDeltaTempo();
+
+    if (getch() == 'q')
+    {
+      estado = FIM;
+    }
   }
 
   /*
@@ -55,6 +71,9 @@ int main(int argc, char **argv)
     necessário, pois o SO faz isso automaticamente, mas
     liberar manualmente facilita o debugging com o Valgrind.
   */
+
+  // Sai do modo curses.
+  endwin();
 
   // Descarrega os gráficos.
   descarregarGrafico(&gArqueiro);

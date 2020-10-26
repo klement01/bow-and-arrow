@@ -1,26 +1,21 @@
 #include <TerminalIO.h>
 
-#define N_LINHAS 35
-#define N_COLUNAS 80
+#include <stdio.h>
+#include <stdlib.h>
 
 void inicializarTerminal()
 {
   initscr();
-  // Muda o tamanho do terminal para o tamanho especificado pelo
-  // enunciado do trabalho final.
-  resize_term(N_LINHAS, N_COLUNAS);
   // Impede que teclas digitadas apareçam no terminal automaticamente.
   noecho();
   // Esconde o cursor.
   curs_set(0);
   // Passa as entradas diretamente para o programa.
-  raw();
+  nocbreak();
   // Permite que a janela receba teclas de função e do teclado.
   keypad(stdscr, true);
   // Desativa a espera por entradas.
   nodelay(stdscr, true);
-  // Limpa o terminal.
-  refresh();
 }
 
 WINDOW *criarJanela(int altura, int largura, int posy, int posx)
@@ -29,6 +24,81 @@ WINDOW *criarJanela(int altura, int largura, int posy, int posx)
   keypad(win, true);
   nodelay(win, true);
   return win;
+}
+
+bool verificarTamanho()
+{
+  return getmaxy(stdscr) == N_LINHAS && getmaxx(stdscr) == N_COLUNAS;
+}
+
+bool corrigirTamanho()
+{
+  bool houveResize = false;
+
+  // Se o tamanho do terminal não está correto, mostra uma mensagem de
+  // erro até ele estar.
+  if (!verificarTamanho())
+  {
+    houveResize = true;
+    clear();
+
+    // Dimensóes e posição da janela.
+    const int ALTURA = 5, LARGURA = 32;
+    int posy = -1, posx = -1;
+
+    WINDOW *win = NULL;
+
+    do
+    {
+      // Determina o tamanho atual do terminal e a posição da
+      // janela dentro dele.
+      int yterm = getmaxy(stdscr), xterm = getmaxx(stdscr);
+      int nposy = (yterm - ALTURA) / 2, nposx = (xterm - LARGURA) / 2;
+
+      // Se a janela tiver se movido, apaga sua posição antiga e
+      // a move.
+      if (nposy != posy || nposx != posx)
+      {
+        // Limpa a tela se a janela for movida.
+        delwin(win);
+        clear();
+        refresh();
+        // Se o terminal tiver o tamanho necessário, cria uma nova
+        // janela.
+        if (nposy >= 0 && nposx >= 0)
+        {
+          posy = nposy;
+          posx = nposx;
+          win = criarJanela(ALTURA, LARGURA, posy, posx);
+        }
+        // Se não, torna o ponteiro da janela nulo.
+        else
+        {
+          posy = -1;
+          posx = -1;
+          win = NULL;
+        }
+      }
+
+      // Se houver uma janela, mostra informações sobre o estado do
+      // terminal nela.
+      if (win != NULL)
+      {
+        box(win, 0, 0);
+        mvwprintw(win, 1, 2, "Tamanho incorreto da janela");
+        mvwprintw(win, 2, 2, "Tamanho esperado: %3d x %3d", N_LINHAS, N_COLUNAS);
+        mvwprintw(win, 3, 2, "Tamanho real:     %3d x %3d", yterm, xterm);
+        wrefresh(win);
+      }
+    } while (!verificarTamanho());
+
+    // Deleta a janela.
+    clear();
+    refresh();
+    delwin(win);
+  }
+
+  return houveResize;
 }
 
 #if defined(_WIN32) || defined(WIN32)
@@ -56,6 +126,11 @@ bool teclaPressionada(Tecla tecla)
 {
   // Abre conexão com servidor X principal.
   Display *dsp = XOpenDisplay(NULL);
+  if (!dsp)
+  {
+    perror("Erro conectado ao servidor X");
+    exit(EXIT_FAILURE);
+  }
 
   // Gera vetor de estado do teclado.
   char kbs[32];

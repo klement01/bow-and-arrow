@@ -15,7 +15,7 @@ sources = $(wildcard $(source_dir)/*.c)
 headers = $(wildcard $(include_dir)/*.h)
 
 # Configurações universais.
-common_flags = -I$(include_dir) -std=c99 
+common_flags = -I$(include_dir) -std=c99 -L.
 
 # Configurações específicas do Linux.
 linux_lib_dir = $(lib_dir)/linux
@@ -53,7 +53,7 @@ ifeq ($(BUILD_TYPE), DEBUG)
 	SPECIAL_FLAGS = -ggdb -O0
 	root = $(os_build_dir)/debug
 else ifeq ($(BUILD_TYPE), RELEASE)
-	SPECIAL_FLAGS = -DNDEBUG -g0 -O3
+	SPECIAL_FLAGS = -D'NDEBUG' -g0 -O3
 	root = $(os_build_dir)/release
 else
 	SPECIAL_FLAGS =
