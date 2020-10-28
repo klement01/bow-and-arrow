@@ -28,7 +28,7 @@ typedef enum
   A = 0x41,
   S = 0x53,
   D = 0x44
-} Tecla;
+} TECLA;
 
 #else
 /*
@@ -48,9 +48,28 @@ typedef enum
   A = XK_a,
   S = XK_s,
   D = XK_d
-} Tecla;
+} TECLA;
 
 #endif
+
+/*
+  Estrutura que contém o estado das teclas de controle pressionadas
+  pelo usuário ou geradas pelo curses.
+*/
+typedef struct
+{
+  bool cima;
+  bool baixo;
+  bool confirma;
+  bool retorna;
+  bool terminalRedimensionado;
+} CONTROLE;
+
+/*
+  Retorna uma estrutura com os estados das teclas de controle do
+  buffer de entrada.
+*/
+CONTROLE verificarTeclasDeControle();
 
 /*
   Cria uma instância de um terminal.
@@ -66,17 +85,18 @@ WINDOW *criarJanela(int altura, int largura, int posy, int posx);
 /*
   Retorna true se o tamanho do terminal estiver correto.
 */
-bool verificarTamanho();
+bool verificarTamanhoDoTerminal();
 
 /*
   Pede para o usuário redimensionar o terminal se estiver com o tamanho
   incorreto, e retorna true se isso foi necessário.
 */
-bool corrigirTamanho();
+void corrigirTamanhoDoTerminal();
 
 /*
-  Retorna true se $tecla está pressionada nesse momento.
+  Retorna true se $tecla está pressionada nesse momento, sem esperar
+  pelo terminal.
 */
-bool teclaPressionada(Tecla tecla);
+bool teclaPressionada(TECLA tecla);
 
 #endif

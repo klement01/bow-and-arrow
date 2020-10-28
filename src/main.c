@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define N_LINHAS_TITULO = 6
+#define N_LINHAS_CABECALHO = 4
+
 int main()
 {
   /*
@@ -15,11 +18,11 @@ int main()
   */
 
   // Carrega os gráficos.
-  Grafico gArqueiro = carregarGrafico("materiais/arqueiro.txt");
-  Grafico gBalao = carregarGrafico("materiais/balao.txt");
-  Grafico gFlecha = carregarGrafico("materiais/flecha.txt");
-  Grafico gIconeFlecha = carregarGrafico("materiais/icone-flecha.txt");
-  Grafico gMonstro = carregarGrafico("materiais/monstro.txt");
+  GRAFICO gArqueiro = carregarGrafico("materiais/arqueiro.txt");
+  GRAFICO gBalao = carregarGrafico("materiais/balao.txt");
+  GRAFICO gFlecha = carregarGrafico("materiais/flecha.txt");
+  GRAFICO gIconeFlecha = carregarGrafico("materiais/icone-flecha.txt");
+  GRAFICO gMonstro = carregarGrafico("materiais/monstro.txt");
 
   // Define os estados em que o jogo pode estar e o estado atual.
   typedef enum
@@ -34,6 +37,7 @@ int main()
 
   // Entra no modo curses.
   inicializarTerminal();
+  corrigirTamanhoDoTerminal();
 
   /*
     Loop: executa continuamente o código principal do jogo,
@@ -42,10 +46,14 @@ int main()
 
   while (estado != FIM)
   {
-    // Exibe um erro se o tamanho do terminal está incorreto e
-    // reinicia um timer nesse caso.
-    if (corrigirTamanho())
+    // Coleta caracteres de controle geradas pelo usuário e pelo curses
+    // durante o último frame.
+    CONTROLE controle = verificarTeclasDeControle();
+    
+    // Corrige o tamanho do terminal se ele tiver mudado.
+    if (controle.terminalRedimensionado)
     {
+      corrigirTamanhoDoTerminal();
       reiniciarTimer();
     }
 
