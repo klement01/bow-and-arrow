@@ -4,41 +4,41 @@
   Vetores fracionários.
 */
 
-fVetor vfSoma(fVetor v1, fVetor v2)
+FVETOR vfSoma(FVETOR v1, FVETOR v2)
 {
-  fVetor v;
+  FVETOR v;
   v.x = v1.x + v2.x;
   v.y = v1.y + v2.y;
   return v;
 }
 
-fVetor vfSub(fVetor v1, fVetor v2)
+FVETOR vfSub(FVETOR v1, FVETOR v2)
 {
-  fVetor v;
+  FVETOR v;
   v.x = v1.x - v2.x;
   v.y = v1.y - v2.y;
   return v;
 }
 
-fVetor vfMult(fVetor v1, float c)
+FVETOR vfMult(FVETOR v1, float c)
 {
-  fVetor v;
+  FVETOR v;
   v.x = v1.x * c;
   v.y = v1.y * c;
   return v;
 }
 
-fVetor vfDiv(fVetor v1, float c)
+FVETOR vfDiv(FVETOR v1, float c)
 {
-  fVetor v;
+  FVETOR v;
   v.x = v1.x / c;
   v.y = v1.y / c;
   return v;
 }
 
-fVetor vfNeg(fVetor v1)
+FVETOR vfNeg(FVETOR v1)
 {
-  fVetor v;
+  FVETOR v;
   v.x = -v1.x;
   v.y = -v1.y;
   return v;
@@ -48,41 +48,41 @@ fVetor vfNeg(fVetor v1)
   Vetores inteiros.
 */
 
-iVetor viSoma(iVetor v1, iVetor v2)
+IVETOR viSoma(IVETOR v1, IVETOR v2)
 {
-  iVetor v;
+  IVETOR v;
   v.x = v1.x + v2.x;
   v.y = v1.y + v2.y;
   return v;
 }
 
-iVetor viSub(iVetor v1, iVetor v2)
+IVETOR viSub(IVETOR v1, IVETOR v2)
 {
-  iVetor v;
+  IVETOR v;
   v.x = v1.x - v2.x;
   v.y = v1.y - v2.y;
   return v;
 }
 
-iVetor viMult(iVetor v1, int c)
+IVETOR viMult(IVETOR v1, int c)
 {
-  iVetor v;
+  IVETOR v;
   v.x = v1.x * c;
   v.y = v1.y * c;
   return v;
 }
 
-iVetor viDiv(iVetor v1, int c)
+IVETOR viDiv(IVETOR v1, int c)
 {
-  iVetor v;
+  IVETOR v;
   v.x = v1.x / c;
   v.y = v1.y / c;
   return v;
 }
 
-iVetor viNeg(iVetor v1)
+IVETOR viNeg(IVETOR v1)
 {
-  iVetor v;
+  IVETOR v;
   v.x = -v1.x;
   v.y = -v1.y;
   return v;

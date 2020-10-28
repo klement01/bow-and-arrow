@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-Node *criarNodeEm(Node **pProximo, Objeto objeto)
+Node *criarNodeEm(Node **pProximo, OBJETO objeto)
 {
   /*
     Cria espaço na memória para um node de objeto e o coloca

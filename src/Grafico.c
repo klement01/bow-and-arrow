@@ -3,8 +3,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-Grafico carregarGrafico(char *caminho)
+GRAFICO carregarGrafico(char *caminho)
 {
   // Tenta abrir um arquivo de gráfico,
   // fecha o programa se falhar.
@@ -69,10 +70,7 @@ Grafico carregarGrafico(char *caminho)
       perror(caminho);
       exit(EXIT_FAILURE);
     }
-    for (int j = 0; j < numColunas; j++)
-    {
-      str[i][j] = ' ';
-    }
+    memset(str[i], ' ', numColunas);
   }
 
   // Retorna ao início do arquivo e preenche a matriz
@@ -98,11 +96,11 @@ Grafico carregarGrafico(char *caminho)
   // Fecha o arquivo, monta a estrutura do gráfico e retorna.
   fclose(arquivo);
 
-  Grafico grafico = {numLinhas, numColunas, str};
+  GRAFICO grafico = {numLinhas, numColunas, str};
   return grafico;
 }
 
-void descarregarGrafico(Grafico *grafico)
+void descarregarGrafico(GRAFICO *grafico)
 {
   // Libera o espaço alocado para o gráfico.
   for (int i = 0; i < grafico->numLinhas; i++)

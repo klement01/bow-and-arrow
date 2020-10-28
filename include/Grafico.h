@@ -13,9 +13,9 @@ typedef struct
   int numLinhas;
   int numColunas;
   char **str;
-} Grafico;
+} GRAFICO;
 
-Grafico carregarGrafico(char *caminho);
-void descarregarGrafico(Grafico *grafico);
+GRAFICO carregarGrafico(char *caminho);
+void descarregarGrafico(GRAFICO *grafico);
 
 #endif

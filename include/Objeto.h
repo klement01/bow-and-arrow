@@ -17,15 +17,15 @@ typedef enum
   JOGADOR,
   FLECHA,
   BALAO
-} idObjeto;
+} ID_OBJETO;
 
 typedef struct
 {
-  idObjeto id;
-  fVetor pos;
-  fVetor velocidade;
-  Grafico *grafico;
-} Objeto;
+  ID_OBJETO id;
+  FVETOR pos;
+  FVETOR velocidade;
+  GRAFICO *grafico;
+} OBJETO;
 
 bool atualizarObjeto(float dt);
 bool desenharObjeto(float dt);

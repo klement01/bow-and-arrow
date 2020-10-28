@@ -11,24 +11,24 @@ typedef struct
 {
   float x;
   float y;
-} fVetor;
+} FVETOR;
 
-fVetor vfSoma(fVetor v1, fVetor v2);
-fVetor vfSub(fVetor v1, fVetor v2);
-fVetor vfMult(fVetor v1, float c);
-fVetor vfDiv(fVetor v1, float c);
-fVetor vfNeg(fVetor v1);
+FVETOR vfSoma(FVETOR v1, FVETOR v2);
+FVETOR vfSub(FVETOR v1, FVETOR v2);
+FVETOR vfMult(FVETOR v1, float c);
+FVETOR vfDiv(FVETOR v1, float c);
+FVETOR vfNeg(FVETOR v1);
 
 typedef struct
 {
   int x;
   int y;
-} iVetor;
+} IVETOR;
 
-iVetor viSoma(iVetor v1, iVetor v2);
-iVetor viSub(iVetor v1, iVetor v2);
-iVetor viMult(iVetor v1, int c);
-iVetor viDiv(iVetor v1, int c);
-iVetor viNeg(iVetor v1);
+IVETOR viSoma(IVETOR v1, IVETOR v2);
+IVETOR viSub(IVETOR v1, IVETOR v2);
+IVETOR viMult(IVETOR v1, int c);
+IVETOR viDiv(IVETOR v1, int c);
+IVETOR viNeg(IVETOR v1);
 
 #endif

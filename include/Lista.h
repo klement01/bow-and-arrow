@@ -12,10 +12,10 @@ typedef struct sNode
 {
   struct sNode *anterior;
   struct sNode *proximo;
-  Objeto objeto;
+  OBJETO objeto;
 } Node;
 
-Node *criarNodeEm(Node **proximo, Objeto objeto);
+Node *criarNodeEm(Node **proximo, OBJETO objeto);
 void removerNode(Node *node);
 void removerListaDoNode(Node **node);
 
