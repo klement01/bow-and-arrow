@@ -21,19 +21,21 @@ LARGE_INTEGER t1;
 bool inicializado = false;
 LARGE_INTEGER frequencia;
 
-void obterTempo(LARGE_INTEGER *t)
+LARGE_INTEGER obterTempoAtual()
 {
   // Fecha o programa se houver um erro obtendo o tempo atual.
-  if (!QueryPerformanceCounter(t))
+  LARGE_INTEGER t;
+  if (!QueryPerformanceCounter(&t))
   {
     perror("Erro obtendo valor do timer");
     exit(EXIT_FAILURE);
   }
+  return t;
 }
 
 void reiniciarTimer()
 {
-  obterTempo(&t1);
+  t1 = obterTempoAtual();
   // Se o timer ainda não foi inicializado, tenta obter o valore
   // de frequência para conversão entre ticks e segundos.
   if (!inicializado)
@@ -51,10 +53,8 @@ double calcularDeltaTempo()
 {
   assert(inicializado);
 
-  LARGE_INTEGER t2;
-
   // Checa o valor do timer em ticks.
-  obterTempo(&t2);
+  LARGE_INTEGER t2 = obterTempoAtual();
 
   // Calcula a diferença e converte para segundos.
   double dt = ((double)(t2.QuadPart - t1.QuadPart)) / frequencia.QuadPart;
@@ -65,7 +65,7 @@ double calcularDeltaTempo()
   return dt;
 }
 
-#else
+#elif _POSIX_C_SOURCE >= 199309L
 /*
   Implementação do timer para Linux (e outros sistemas que
   sigam os padrões POSIX.) Requer POSIX.1b (real time extensions)
@@ -83,30 +83,30 @@ struct timespec t1;
 // é usado sem ser inicializado.
 bool inicializado = false;
 
-void obterTempo(struct timespec *t)
+struct timespec obterTempoAtual()
 {
   // Fecha o programa se houver um erro obtendo o tempo atual.
-  if (clock_gettime(CLOCK_MONOTONIC_RAW, t) == -1)
+  struct timespec t;
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, &t) == -1)
   {
     perror("Erro obtendo valor do timer");
     exit(EXIT_FAILURE);
   }
+  return t;
 }
 
 void reiniciarTimer()
 {
-  obterTempo(&t1);
+  t1 = obterTempoAtual();
   inicializado = true;
 }
 
 double calcularDeltaTempo()
 {
-  assert(inicializado); 
-
-  struct timespec t2;
+  assert(inicializado);
 
   // Tenta obter o tempo atual.
-  obterTempo(&t2);
+  struct timespec t2 = obterTempoAtual();
 
   // Intervalos de tempo são separados em duas partes, segundos e
   // nanossegundos, cujas diferenças são calculadas separadamente.
@@ -119,5 +119,8 @@ double calcularDeltaTempo()
 
   return dt;
 }
+
+#else
+#error Nenhum método de timer definido
 
 #endif

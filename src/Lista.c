@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-Node *criarNodeEm(Node **pProximo, OBJETO objeto)
+NODE *criarNodeEm(NODE **pProximo, OBJETO objeto)
 {
   /*
     Cria espaço na memória para um node de objeto e o coloca
@@ -11,15 +11,15 @@ Node *criarNodeEm(Node **pProximo, OBJETO objeto)
     $pProximo. Atualiza $proximo para ser o novo node e o retorna.
   */
 
-  Node *novoNode = NULL;
+  NODE *novoNode = NULL;
 
   if (pProximo)
   {
     // Pointer que aponta para o próximo node.
-    Node *proximo = *pProximo;
+    NODE *proximo = *pProximo;
 
     // Tenta alocar espaço para o objeto no heap.
-    novoNode = malloc(sizeof(Node));
+    novoNode = malloc(sizeof(NODE));
     if (!novoNode)
     {
       perror("Erro alocando memória para objeto.");
@@ -48,7 +48,7 @@ Node *criarNodeEm(Node **pProximo, OBJETO objeto)
   return novoNode;
 }
 
-void removerNode(Node *node)
+void removerNode(NODE *node)
 {
   /*
     Remove o node de objeto apontado por $node e corrige
@@ -59,8 +59,8 @@ void removerNode(Node *node)
   if (node)
   {
     // Salva os ponteiros do node e o exclui.
-    Node *anterior = node->anterior;
-    Node *proximo = node->proximo;
+    NODE *anterior = node->anterior;
+    NODE *proximo = node->proximo;
     free(node);
     // Corrige os ponteiros dos nodes adjacentes.
     if (anterior)
@@ -74,7 +74,7 @@ void removerNode(Node *node)
   }
 }
 
-void removerListaDoNode(Node **pNode)
+void removerListaDoNode(NODE **pNode)
 {
   /*
     Remove todos os objetos na lista do node apontado
@@ -84,24 +84,24 @@ void removerListaDoNode(Node **pNode)
   if (pNode)
   {
     // Ponteiro para o node.
-    Node *node = *pNode;
+    NODE *node = *pNode;
 
     if (node)
     {
       // Primeiro, anda para trás removendo nodes.
-      Node *anterior = node->anterior;
+      NODE *anterior = node->anterior;
       while (anterior)
       {
-        Node *temp = anterior;
+        NODE *temp = anterior;
         anterior = anterior->anterior;
         free(temp);
       }
 
       // Depois, anda para frente removendo nodes.
-      Node *proximo = node->proximo;
+      NODE *proximo = node->proximo;
       while (proximo)
       {
-        Node *temp = proximo;
+        NODE *temp = proximo;
         proximo = proximo->proximo;
         free(temp);
       }

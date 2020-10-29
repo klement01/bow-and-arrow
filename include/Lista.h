@@ -8,15 +8,15 @@
 
 #include <Objeto.h>
 
-typedef struct sNode
+typedef struct struct_node
 {
-  struct sNode *anterior;
-  struct sNode *proximo;
+  struct struct_node *anterior;
+  struct struct_node *proximo;
   OBJETO objeto;
-} Node;
+} NODE;
 
-Node *criarNodeEm(Node **proximo, OBJETO objeto);
-void removerNode(Node *node);
-void removerListaDoNode(Node **node);
+NODE *criarNodeEm(NODE **proximo, OBJETO objeto);
+void removerNode(NODE *node);
+void removerListaDoNode(NODE **node);
 
 #endif

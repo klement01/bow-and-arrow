@@ -7,7 +7,7 @@
   entre eles com vetores.
 */
 
-typedef struct
+typedef struct struct_fvetor
 {
   float x;
   float y;
@@ -19,7 +19,7 @@ FVETOR vfMult(FVETOR v1, float c);
 FVETOR vfDiv(FVETOR v1, float c);
 FVETOR vfNeg(FVETOR v1);
 
-typedef struct
+typedef struct struct_ivetor
 {
   int x;
   int y;

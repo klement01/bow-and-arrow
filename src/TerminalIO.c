@@ -1,48 +1,27 @@
 #include <TerminalIO.h>
 
+#include <assert.h>
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-CONTROLE verificarTeclasDeControle()
-{
-  // Variável de controle inicializada com zeros (ou seja, false.)
-  static CONTROLE controleNulo;
-  CONTROLE controle = controleNulo;
-  // Itera sobre a stream de entrada do curses até ela ser exausta.
-  int ch;
-  while ((ch = getch()) != ERR)
-  {
-    ch = tolower(ch);
-    switch (ch)
-    {
-    // Teclas de controle geradas pelo usuário.
-    case KEY_UP:
-    case 'w':
-      controle.cima = true;
-      break;
-    case KEY_DOWN:
-    case 's':
-      controle.baixo = true;
-      break;
-    case KEY_ENTER:
-      controle.confirma = true;
-      break;
-    case KEY_BACKSPACE:
-      controle.retorna = true;
-      break;
-    // Teclas de controle geradas pelo curses.
-    case KEY_RESIZE:
-      controle.terminalRedimensionado = true;
-      break;
-    }
-  }
-  return controle;
-}
+#ifdef XCURSES
+// Conexão com o servidor X, aberta durante a inicialização do terminal.
+Display *xServer = NULL;
+#endif
 
 void inicializarTerminal()
 {
+#ifdef XCURSES
+  // Abre conexão com servidor X principal.
+  xServer = XOpenDisplay(NULL);
+  if (!xServer)
+  {
+    perror("Erro conectando ao servidor X");
+    exit(EXIT_FAILURE);
+  }
+#endif
   // Inicializa a janela.
   initscr();
   // Impede que teclas digitadas apareçam no terminal automaticamente.
@@ -63,6 +42,17 @@ void inicializarTerminal()
   refresh();
 }
 
+void fecharTerminal()
+{
+  // Fecha janela do curses.
+  endwin();
+#ifdef XCURSES
+  // Fecha conexão com servidor X principal.
+  assert(xServer);
+  XCloseDisplay(xServer);
+#endif
+}
+
 WINDOW *criarJanela(int altura, int largura, int posy, int posx)
 {
   WINDOW *win = newwin(altura, largura, posy, posx);
@@ -71,11 +61,50 @@ WINDOW *criarJanela(int altura, int largura, int posy, int posx)
   return win;
 }
 
+CONTROLE verificarTeclasDeControle()
+{
+  // Variável de controle inicializada com zeros (ou seja, false.)
+  CONTROLE controle = {0};
+
+  // Itera sobre a stream de entrada do curses até ela ser exausta.
+  int ch;
+  while ((ch = getch()) != ERR)
+  {
+    // A diferença entre maiúsculas e minúsculas (ex.: Q, Shift+Q)
+    // não é considerada.
+    ch = tolower(ch);
+    switch (ch)
+    {
+    // Teclas de controle geradas pelo usuário.
+    case KEY_UP:
+    case 'w':
+      controle.cima = true;
+      break;
+    case KEY_DOWN:
+    case 's':
+      controle.baixo = true;
+      break;
+    case KEY_ENTER:
+    case '\n':
+      controle.confirma = true;
+      break;
+    case KEY_BACKSPACE:
+      controle.retorna = true;
+      break;
+    // Teclas de controle geradas pelo curses.
+    case KEY_RESIZE:
+      controle.terminalRedimensionado = true;
+      break;
+    }
+  }
+  return controle;
+}
+
 bool verificarTamanhoDoTerminal()
 {
-  // No PDCurses, o tamanho deve ser atualizado manualmente após
-  // ser alterado.
 #ifdef PDCURSES
+  // No PDCurses, o tamanho deve ser atualizado
+  // manualmente após ser alterado.
   resize_term(0, 0);
 #endif
   return getmaxy(stdscr) == N_LINHAS && getmaxx(stdscr) == N_COLUNAS;
@@ -83,6 +112,10 @@ bool verificarTamanhoDoTerminal()
 
 void corrigirTamanhoDoTerminal()
 {
+  // TODO: reescrever função para ser mais eficiente (ver werase().)
+  // Resolver reaparecimento do cursor no Windows.
+  // Resolver flickering no Windows.
+
   // Limpa a tela.
   clear();
   refresh();
@@ -104,7 +137,6 @@ void corrigirTamanhoDoTerminal()
     if (nposy != posy || nposx != posx)
     {
       // Limpa a tela se a janela for movida e deleta a window.
-      // TODO: corrigir flickering na versão de Windows.
       if (win)
       {
         delwin(win);
@@ -136,16 +168,19 @@ void corrigirTamanhoDoTerminal()
     {
       box(win, 0, 0);
       mvwprintw(win, 1, 2, "Tamanho incorreto da janela");
-      mvwprintw(win, 2, 2, "Tamanho esperado: %3d x %3d", N_LINHAS, N_COLUNAS);
-      mvwprintw(win, 3, 2, "Tamanho real:     %3d x %3d", yterm, xterm);
+      mvwprintw(win, 2, 2, "Tamanho esperado: %3d x %3d", N_COLUNAS, N_LINHAS);
+      mvwprintw(win, 3, 2, "Tamanho real:     %3d x %3d", xterm, yterm);
       wrefresh(win);
     }
   }
 
   // Deleta a janela.
+  if (win)
+  {
+    delwin(win);
+  };
   clear();
   refresh();
-  delwin(win);
 }
 
 #if defined(_WIN32) || defined(WIN32)
@@ -160,38 +195,27 @@ bool teclaPressionada(TECLA tecla)
   return (bool)GetAsyncKeyState(tecla);
 }
 
-#else
+#elif defined(XCURSES)
 /*
   Entrada assíncrona para sistemas com o gerenciador de janelas
   X11 (por exemplo, a maioria das distribuições do Linux.)
 */
 
-#include <X11/Xlib.h>
-#include <X11/keysym.h>
-
 bool teclaPressionada(TECLA tecla)
 {
-  // Abre conexão com servidor X principal.
-  Display *dsp = XOpenDisplay(NULL);
-  if (!dsp)
-  {
-    perror("Erro conectando ao servidor X");
-    exit(EXIT_FAILURE);
-  }
+  assert(xServer);
 
   // Gera vetor de estado do teclado.
   uint8_t kbs[32];
-  XQueryKeymap(dsp, kbs);
+  XQueryKeymap(xServer, kbs);
 
   // Transforma o valor $tecla em um código de tecla do X11 e checa
   // se o bit correspondente em $kbs está ligado. Os três bits menos
   // significativos indexam um bit dentro de um byte (2^3 = 8),
   // e o resto indexa um byte do vetor $kbs.
-  KeyCode kc = XKeysymToKeycode(dsp, tecla);
+  KeyCode kc = XKeysymToKeycode(xServer, tecla);
   bool pressionada = kbs[kc >> 3] & (1 << (kc & 0b111));
 
-  // Fecha a conexão com o servidor e retorna.
-  XCloseDisplay(dsp);
   return pressionada;
 }
 

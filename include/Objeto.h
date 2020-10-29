@@ -12,14 +12,14 @@
 
 #include <stdbool.h>
 
-typedef enum
+typedef enum enum_id_objeto
 {
   JOGADOR,
   FLECHA,
   BALAO
 } ID_OBJETO;
 
-typedef struct
+typedef struct struct_objeto
 {
   ID_OBJETO id;
   FVETOR pos;

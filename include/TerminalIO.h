@@ -20,7 +20,7 @@
 
 #include <windows.h>
 
-typedef enum
+typedef enum enum_tecla
 {
   ENTER = VK_RETURN,
   ESPACO = VK_SPACE,
@@ -32,15 +32,22 @@ typedef enum
 
 #else
 /*
-  Códigos de tecla para sistemas com o gerenciador de janelas X11
+  Bibliotecas para entrada assíncrona com um servidor X.
   (como, por exemplo, a maioria das distribuições do Linux.)
 */
 
 #include <ncurses.h>
 
+#include <X11/Xlib.h>
 #include <X11/keysym.h>
 
-typedef enum
+#define XCURSES
+
+/*
+  Códigos de tecla para o servidor X.
+*/
+
+typedef enum enum_tecla
 {
   ENTER = XK_Return,
   ESPACO = XK_space,
@@ -56,7 +63,7 @@ typedef enum
   Estrutura que contém o estado das teclas de controle pressionadas
   pelo usuário ou geradas pelo curses.
 */
-typedef struct
+typedef struct struct_controle
 {
   bool cima;
   bool baixo;
@@ -75,6 +82,11 @@ CONTROLE verificarTeclasDeControle();
   Cria uma instância de um terminal.
 */
 void inicializarTerminal();
+
+/*
+  Fecha o terminal.
+*/
+void fecharTerminal();
 
 /*
   Cria uma janela na posição desejada e com com o tamanho especificado,
