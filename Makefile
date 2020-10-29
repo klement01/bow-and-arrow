@@ -17,7 +17,7 @@ common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L.
 
 # Configurações específicas do Linux 64 bits.
 linux64_compiler = c99
-linux64_lib_dir  = $(lib_dir)/linux
+linux64_lib_dir  = $(lib_dir)/linux64
 linux64_libs     = -lncurses -lX11
 linux64_flags    = -D'_POSIX_C_SOURCE=199309L' -L$(linux64_lib_dir) \
 	-Wl,-rpath,'$$ORIGIN'
@@ -35,13 +35,13 @@ ifeq ($(OS), LINUX64)
 	REQ_FLAGS    = $(common_flags) $(linux64_flags) $(linux64_libs)
 	BIN_NAME     = $(prog_name)
 	os_lib_dir   = $(linux64_lib_dir)
-	os_build_dir = $(build_dir)/linux
+	os_build_dir = $(build_dir)/linux64
 else ifeq ($(OS), WIN64)
 	CC           = $(windows64_compiler)
 	REQ_FLAGS    = $(common_flags) $(windows64_flags) $(windows64_libs)
 	BIN_NAME     = $(prog_name).exe
 	os_lib_dir   = $(windows64_lib_dir)
-	os_build_dir = $(build_dir)/win
+	os_build_dir = $(build_dir)/win64
 else
 	$(error Invalid OS)
 endif
