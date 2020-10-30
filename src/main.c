@@ -3,14 +3,10 @@
 #include <TerminalIO.h>
 #include <Timer.h>
 
+#include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-#define N_LINHAS_TITULO 14
-#define N_LINHAS_MENU (N_LINHAS - N_LINHAS_TITULO + 1)
-#define N_LINHAS_CABECALHO 4
-#define N_LINHAS_JOGO (N_LINHAS - N_LINHAS_CABECALHO + 1)
 
 // Define os estados em que o jogo pode estar.
 typedef enum enum_estado
@@ -20,12 +16,11 @@ typedef enum enum_estado
   PLACAR,
   JOGO,
   GAMEOVER,
-  GAMEOVER_HIGHSCORE
 } ESTADO;
 
-ESTADO atualizarMenu(CONTROLE *controle, double dt, bool trocaDeEstado);
-ESTADO atualizarPlacar(CONTROLE *controle, double dt, bool trocaDeEstado);
-ESTADO atualizarJogo(CONTROLE *controle, double dt, bool trocaDeEstado);
+ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado);
+ESTADO atualizarPlacar(CONTROLE *controle, float dt, bool trocaDeEstado);
+ESTADO atualizarJogo(CONTROLE *controle, float dt, bool trocaDeEstado);
 void carregarMateriais();
 void descarregarMateriais();
 
@@ -36,15 +31,23 @@ int main()
     dos objetos (jogador, flechas, balões, etc.)
   */
 
+  // Muda o local dos chars para o local do sistema.
+  setlocale(LC_CTYPE, "");
+
   // Define o estado inicial do jogo.
   ESTADO estado = MENU;
   ESTADO ultimoEstado = FIM;
 
-  // Entra no modo curses.
+  // Entra no modo curses e configura a função de fechar terminal
+  // para ser executada na saída do programa.
   inicializarTerminal();
+  atexit(&fecharTerminal);
 
-  // Carrega os materiais do jogo (gráficos, janelas, etc.)
+  // Carrega os materiais do jogo (gráficos, janelas, etc.) e
+  // configura a função de descarregar materiais para ser executada
+  // na saída do programa.
   carregarMateriais();
+  atexit(&descarregarMateriais);
 
   // Garante que o tamanho do terminal esteja correto.
   corrigirTamanhoDoTerminal();
@@ -59,8 +62,11 @@ int main()
 
   while (estado != FIM)
   {
+    // Calcula o tempo transcorrido desde o último quadro.
+    float dt = calcularDeltaTempo();
+
     // Coleta caracteres de controle geradas pelo usuário e pelo curses
-    // durante o último frame.
+    // durante o último quadro.
     CONTROLE controle = verificarTeclasDeControle();
 
     // Corrige o tamanho do terminal se ele tiver mudado.
@@ -74,14 +80,17 @@ int main()
     bool trocaDeEstado = estado != ultimoEstado;
     ultimoEstado = estado;
 
-    // Calcula o tempo transcorrido desde o último loop.
-    double dt = calcularDeltaTempo();
-
     // Atualiza o jogo de acordo com o estado atual.
     switch (estado)
     {
     case MENU:
       estado = atualizarMenu(&controle, dt, trocaDeEstado);
+      break;
+    case PLACAR:
+      estado = atualizarPlacar(&controle, dt, trocaDeEstado);
+      break;
+    case JOGO:
+      estado = atualizarJogo(&controle, dt, trocaDeEstado);
       break;
     }
 
@@ -89,24 +98,18 @@ int main()
     doupdate();
   }
 
-  /*
-    Cleanup: libera qualquer memória que ainda não tenha
-    sido liberada antes do fim do programa. Não é realmente
-    necessário, pois o SO faz isso automaticamente, mas
-    liberar manualmente facilita o debugging com o Valgrind.
-  */
-
-  // Descarrega os materiais.
-  descarregarMateriais();
-
-  // Sai do modo curses.
-  fecharTerminal();
-
   // Fim do programa.
   return EXIT_SUCCESS;
 }
 
-// Menu principal.
+/*
+ *      __  __                 
+ *     |  \/  | ___  _ _  _  _ 
+ *     | |\/| |/ -_)| ' \| || |
+ *     |_|  |_|\___||_||_|\_,_|
+ *
+ */
+
 struct
 {
   GRAFICO gTitulo;
@@ -115,7 +118,7 @@ struct
   WINDOW *wOpcoes;
 } menu;
 
-ESTADO atualizarMenu(CONTROLE *controle, double dt, bool trocaDeEstado)
+ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = MENU;
@@ -125,10 +128,10 @@ ESTADO atualizarMenu(CONTROLE *controle, double dt, bool trocaDeEstado)
 
   // A posição e passo do cursor.
   const int NUM_OPCOES = 3;
-  const int OFFSET_X = 2;
+  const int OFFSET_X = 3;
   const int PASSO_Y = 1;
-  int origem_y = (getmaxy(menu.wOpcoes) - menu.gOpcoes.numLinhas) / 2;
-  int origem_x = (getmaxx(menu.wOpcoes) - menu.gOpcoes.numColunas) / 2;
+  int origem_y = (getmaxy(menu.wOpcoes) - menu.gOpcoes.linhas) / 2;
+  int origem_x = (getmaxx(menu.wOpcoes) - menu.gOpcoes.colunas) / 2;
 
   // Processa os controler do usuário, seguindo a hierarquia de prioridade
   // cima > baixo > retorna > confirma. Primeiro, altera a seleção de
@@ -178,7 +181,7 @@ ESTADO atualizarMenu(CONTROLE *controle, double dt, bool trocaDeEstado)
   werase(menu.wTitulo);
   werase(menu.wOpcoes);
 
-  // Redesenha o título e as opções.
+  // Desenha o título e as opções.
   desenharGrafico(&menu.gTitulo, menu.wTitulo, CENTRO, CENTRO);
   box(menu.wTitulo, 0, 0);
   desenharGrafico(&menu.gOpcoes, menu.wOpcoes, CENTRO, CENTRO);
@@ -198,7 +201,9 @@ ESTADO atualizarMenu(CONTROLE *controle, double dt, bool trocaDeEstado)
     offset_y = 2 * PASSO_Y;
     break;
   }
-  mvwprintw(menu.wOpcoes, origem_y + offset_y, origem_x + OFFSET_X, "-->");
+  wattr_on(menu.wOpcoes, A_BOLD, NULL);
+  mvwprintw(menu.wOpcoes, origem_y + offset_y, origem_x + OFFSET_X, "➤");
+  wattr_off(menu.wOpcoes, A_BOLD, NULL);
 
   // Adiciona as janelas à fila de janelas a serem atualizadas
   // no fim do quadro.
@@ -208,6 +213,61 @@ ESTADO atualizarMenu(CONTROLE *controle, double dt, bool trocaDeEstado)
   return estado;
 }
 
+/*
+ *      ___  _                      
+ *     | _ \| | __ _  __  __ _  _ _ 
+ *     |  _/| |/ _` |/ _|/ _` || '_|
+ *     |_|  |_|\__,_|\__|\__,_||_|  
+ *
+ */
+
+struct
+{
+  FILE *highscores;
+  // TODO: adicionar arranjo/estrutura de scores.
+} placar;
+
+ESTADO atualizarPlacar(CONTROLE *controle, float dt, bool trocaDeEstado)
+{
+  // O estado para o qual o jogo mudará quando a função retornar.
+  ESTADO estado = PLACAR;
+  return estado;
+}
+
+/*
+ *         _                 
+ *      _ | | ___  __ _  ___ 
+ *     | || |/ _ \/ _` |/ _ \
+ *      \__/ \___/\__, |\___/
+ *                |___/      
+ *
+ */
+
+struct
+{
+  GRAFICO gArqueiro;
+  GRAFICO gFlecha;
+  GRAFICO gBalao;
+  GRAFICO gMonstro;
+  WINDOW *wCabecalho;
+  WINDOW *wJogo;
+} jogo;
+
+ESTADO atualizarJogo(CONTROLE *controle, float dt, bool trocaDeEstado)
+{
+  // O estado para o qual o jogo mudará quando a função retornar.
+  ESTADO estado = JOGO;
+  return estado;
+}
+
+/*
+ *       ___                  _ 
+ *      / __| ___  _ _  __ _ | |
+ *     | (_ |/ -_)| '_|/ _` || |
+ *      \___|\___||_|  \__,_||_|
+ *
+ */
+
 void carregarMateriais()
 {
   // Menu principal.
@@ -215,11 +275,29 @@ void carregarMateriais()
   menu.gOpcoes = carregarGrafico("materiais/menu.txt");
   menu.wTitulo = criarJanela(N_LINHAS_TITULO, N_COLUNAS, 0, 0);
   menu.wOpcoes = criarJanela(N_LINHAS_MENU, N_COLUNAS, N_LINHAS_TITULO - 1, 0);
+
+  // Jogo.
+  jogo.gArqueiro = carregarGrafico("materiais/arqueiro.txt");
+  jogo.gFlecha = carregarGrafico("materiais/flecha.txt");
+  jogo.gBalao = carregarGrafico("materiais/balao.txt");
+  jogo.gMonstro = carregarGrafico("materiais/monstro.txt");
+  jogo.wCabecalho = criarJanela(N_LINHAS_CABECALHO, N_COLUNAS, 0, 0);
+  jogo.wJogo = criarJanela(N_LINHAS_JOGO, N_COLUNAS, N_LINHAS_CABECALHO - 1, 0);
 }
 
 void descarregarMateriais()
 {
   // Menu principal.
+  descarregarGrafico(&menu.gTitulo);
+  descarregarGrafico(&menu.gOpcoes);
   delwin(menu.wTitulo);
   delwin(menu.wOpcoes);
+
+  // Jogo.
+  descarregarGrafico(&jogo.gArqueiro);
+  descarregarGrafico(&jogo.gFlecha);
+  descarregarGrafico(&jogo.gBalao);
+  descarregarGrafico(&jogo.gMonstro);
+  delwin(jogo.wCabecalho);
+  delwin(jogo.wJogo);
 }

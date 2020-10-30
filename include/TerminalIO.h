@@ -7,61 +7,65 @@
 
 #include <stdbool.h>
 
+// Dimensões do terminal inteiro.
 #define N_LINHAS 35
 #define N_COLUNAS 80
 
+// Tamanho das subjanelas para os estados que as utilizam.
+#define N_LINHAS_TITULO 14
+#define N_LINHAS_MENU (N_LINHAS - N_LINHAS_TITULO + 1)
+#define N_LINHAS_CABECALHO 4
+#define N_LINHAS_JOGO (N_LINHAS - N_LINHAS_CABECALHO + 1)
+
 #if defined(_WIN32) || defined(WIN32)
 /*
-  Códigos de tecla pra Windows.
+  Windows usa PDCurses como biblioteca do curses.
 */
 
 #include <PDCurses.h>
 #include <Panel.h>
 
+/*
+  Códigos de tecla para entrada assíncrona no Windows. Usadas quando
+  a leitura com o curses não é adequada.
+*/
+
 #include <windows.h>
 
-typedef enum enum_tecla
+typedef enum enum_tecla_async
 {
-  ENTER = VK_RETURN,
-  ESPACO = VK_SPACE,
   W = 0x57,
   A = 0x41,
-  S = 0x53,
-  D = 0x44
-} TECLA;
+} TECLA_ASYNC;
 
 #else
 /*
-  Bibliotecas para entrada assíncrona com um servidor X.
-  (como, por exemplo, a maioria das distribuições do Linux.)
+  Linux usa o ncurses como biblioteca de curses.
 */
 
 #include <ncurses.h>
 
-#include <X11/Xlib.h>
-#include <X11/keysym.h>
-
 #define XCURSES
 
 /*
-  Códigos de tecla para o servidor X.
+  Códigos de tecla para leitura assíncrona com o servidor X. Usadas
+  quando a leitura com o curses não é adequada.
 */
 
-typedef enum enum_tecla
+#include <X11/Xlib.h>
+#include <X11/keysym.h>
+
+typedef enum enum_tecla_async
 {
-  ENTER = XK_Return,
-  ESPACO = XK_space,
   W = XK_w,
   A = XK_a,
-  S = XK_s,
-  D = XK_d
-} TECLA;
+} TECLA_ASYNC;
 
 #endif
 
 /*
   Estrutura que contém o estado das teclas de controle pressionadas
-  pelo usuário ou geradas pelo curses.
+  pelo usuário ou geradas pelo curses durante um quadro.
 */
 typedef struct struct_controle
 {
@@ -109,6 +113,6 @@ void corrigirTamanhoDoTerminal();
   Retorna true se $tecla está pressionada nesse momento, sem esperar
   pelo terminal.
 */
-bool teclaPressionada(TECLA tecla);
+bool teclaPressionada(TECLA_ASYNC tecla);
 
 #endif

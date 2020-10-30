@@ -49,7 +49,7 @@ void reiniciarTimer()
   inicializado = true;
 }
 
-double calcularDeltaTempo()
+float calcularDeltaTempo()
 {
   assert(inicializado);
 
@@ -57,7 +57,7 @@ double calcularDeltaTempo()
   LARGE_INTEGER t2 = obterTempoAtual();
 
   // Calcula a diferença e converte para segundos.
-  double dt = ((double)(t2.QuadPart - t1.QuadPart)) / frequencia.QuadPart;
+  float dt = ((double)(t2.QuadPart - t1.QuadPart)) / frequencia.QuadPart;
 
   // Salva o tempo da invocação atual para a próxima invocação.
   t1 = t2;
@@ -101,7 +101,7 @@ void reiniciarTimer()
   inicializado = true;
 }
 
-double calcularDeltaTempo()
+float calcularDeltaTempo()
 {
   assert(inicializado);
 
@@ -110,9 +110,9 @@ double calcularDeltaTempo()
 
   // Intervalos de tempo são separados em duas partes, segundos e
   // nanossegundos, cujas diferenças são calculadas separadamente.
-  double dt_sec = t2.tv_sec - t1.tv_sec;
-  double dt_nsec = t2.tv_nsec - t1.tv_nsec;
-  double dt = dt_sec + dt_nsec / 1e9;
+  float dt_sec = t2.tv_sec - t1.tv_sec;
+  float dt_nsec = t2.tv_nsec - t1.tv_nsec;
+  float dt = dt_sec + dt_nsec / 1e9;
 
   // Salva o tempo da invocação atual para a próxima invocação.
   t1 = t2;

@@ -17,8 +17,8 @@
 
 typedef struct struct_grafico
 {
-  int numLinhas;
-  int numColunas;
+  int linhas;
+  int colunas;
   char **imagem;
 } GRAFICO;
 
@@ -39,11 +39,5 @@ void descarregarGrafico(GRAFICO *grafico);
   dentro da janela nessa coordenada.
 */
 void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x);
-
-/*
-  Wrapper para $carregarGrafico, $desenharGrafico e $descarregarGrafico.
-  Usado para desenhar um gráfico que só precisa ser usado uma vez.
-*/
-void desenharGraficoTemporario(char *caminho, WINDOW *win, int y, int x);
 
 #endif

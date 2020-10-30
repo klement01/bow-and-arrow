@@ -2,32 +2,41 @@
 #define OBJETO_H
 
 /*
-  Define uma enumeração com identificadores numéricos únicos
-  para cada tipo de objeto do jogo e um estrutura de informações
-  comuns a todos os objetos.
+  Define um estrutura e funções para lidar como objetos do jogo.
 */
 
 #include <Grafico.h>
-#include <Vetor.h>
 
 #include <stdbool.h>
 
+/*
+  Identificadores únicos para cada tipo de objeto.
+*/
 typedef enum enum_id_objeto
 {
   JOGADOR,
   FLECHA,
-  BALAO
+  BALAO,
+  MONSTRO
 } ID_OBJETO;
 
 typedef struct struct_objeto
 {
   ID_OBJETO id;
-  FVETOR pos;
-  FVETOR velocidade;
+  float x, y;
+  float vx, vy;
   GRAFICO *grafico;
 } OBJETO;
 
-bool atualizarObjeto(float dt);
-bool desenharObjeto(float dt);
+/*
+  Atualiza os objetos do jogo de acordo com o tempo transcorrido
+  desde o último quadro.
+*/
+bool atualizarObjeto(OBJETO *objeto, float dt);
+
+/*
+  Desenha os objetos do jogo na janela.
+*/
+bool desenharObjeto(OBJETO *objeto, WINDOW *win);
 
 #endif

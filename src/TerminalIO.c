@@ -56,6 +56,11 @@ void fecharTerminal()
 WINDOW *criarJanela(int altura, int largura, int posy, int posx)
 {
   WINDOW *win = newwin(altura, largura, posy, posx);
+  if (!win)
+  {
+    perror("Erro criando janela");
+    exit(EXIT_FAILURE);
+  }
   keypad(win, true);
   nodelay(win, true);
   return win;
@@ -86,9 +91,11 @@ CONTROLE verificarTeclasDeControle()
       break;
     case KEY_ENTER:
     case '\n':
+    case '\r':
       controle.confirma = true;
       break;
     case KEY_BACKSPACE:
+    case '\b':
       controle.retorna = true;
       break;
     // Teclas de controle geradas pelo curses.
@@ -104,7 +111,7 @@ bool verificarTamanhoDoTerminal()
 {
 #ifdef PDCURSES
   // No PDCurses, o tamanho deve ser atualizado
-  // manualmente após ser alterado.
+  // manualmente após ser alterado pelo usuário.
   resize_term(0, 0);
 #endif
   return getmaxy(stdscr) == N_LINHAS && getmaxx(stdscr) == N_COLUNAS;
@@ -113,8 +120,8 @@ bool verificarTamanhoDoTerminal()
 void corrigirTamanhoDoTerminal()
 {
   // TODO: reescrever função para ser mais eficiente (ver werase().)
-  // Resolver reaparecimento do cursor no Windows.
-  // Resolver flickering no Windows.
+  // TODO: resolver reaparecimento do cursor no Windows.
+  // TODO: resolver flickering no Windows.
 
   // Limpa a tela.
   clear();
@@ -190,7 +197,7 @@ void corrigirTamanhoDoTerminal()
 
 #include <windows.h>
 
-bool teclaPressionada(TECLA tecla)
+bool teclaPressionada(TECLA_ASYNC tecla)
 {
   return (bool)GetAsyncKeyState(tecla);
 }
@@ -201,7 +208,7 @@ bool teclaPressionada(TECLA tecla)
   X11 (por exemplo, a maioria das distribuições do Linux.)
 */
 
-bool teclaPressionada(TECLA tecla)
+bool teclaPressionada(TECLA_ASYNC tecla)
 {
   assert(xServer);
 
