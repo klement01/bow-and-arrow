@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_BYTES_UTF8 6
-
 GRAFICO carregarGrafico(char *caminho)
 {
   // Tenta abrir um arquivo de gráfico,
@@ -21,37 +19,39 @@ GRAFICO carregarGrafico(char *caminho)
 
   // Descobre as dimensões do gráfico, que é interpretado
   // como um arquivo de texto codificado em UTF-8.
+  // Dimensões.
   int linhas = 0;
   int colunas = 0;
+  int bytesPorLinha = 0;
+  // Valores da linha sendo analisada no momento.
   int colunasLinhaAtual = 0;
-  int bytesPorColuna = 0;
-  int bytesColunaAtual = 0;
-  int byteAtual; // int para acomodar EOF.
-  while ((byteAtual = fgetc(arquivo)) != EOF)
+  int bytesLinhaAtual = 0;
+  int byte; // int para acomodar EOF.
+  while ((byte = fgetc(arquivo)) != EOF)
   {
     // Nova linha foi encontrada.
-    if (byteAtual == '\n')
+    if (byte == '\n')
     {
       linhas++;
       if (colunasLinhaAtual > colunas)
       {
         colunas = colunasLinhaAtual;
       }
-      if (bytesColunaAtual > bytesPorColuna)
+      if (bytesLinhaAtual > bytesPorLinha)
       {
-        bytesPorColuna = bytesColunaAtual;
+        bytesPorLinha = bytesLinhaAtual;
       }
       colunasLinhaAtual = 0;
-      bytesColunaAtual = 0;
+      bytesLinhaAtual = 0;
     }
     // Incrementa o número de bytes lidos nessa coluna e o
     // número de caracteres lidos, se for o caso.
     else
     {
-      bytesColunaAtual++;
+      bytesLinhaAtual++;
       // Caracteres começam com "0" ou "11". Bytes que começam com
       // "10" são uma continuação do último caractere.
-      if ((byteAtual >> 6) != 0b10)
+      if ((byte >> 6) != 0b10)
       {
         colunasLinhaAtual++;
       }
@@ -66,9 +66,9 @@ GRAFICO carregarGrafico(char *caminho)
     {
       colunas = colunasLinhaAtual;
     }
-    if (bytesColunaAtual > bytesPorColuna)
+    if (bytesLinhaAtual > bytesPorLinha)
     {
-      bytesPorColuna = bytesColunaAtual;
+      bytesPorLinha = bytesLinhaAtual;
     }
   }
 
@@ -84,32 +84,32 @@ GRAFICO carregarGrafico(char *caminho)
   }
   for (int i = 0; i < linhas; i++)
   {
-    imagem[i] = (char *)malloc(bytesPorColuna * sizeof(char));
+    imagem[i] = (char *)malloc(bytesPorLinha * sizeof(char));
     if (!imagem[i])
     {
       fputs("Erro alocando espaço para gráfico ", stderr);
       perror(caminho);
       exit(EXIT_FAILURE);
     }
-    memset(imagem[i], ' ', bytesPorColuna);
+    memset(imagem[i], ' ', bytesPorLinha);
   }
 
   // Retorna ao início do arquivo e preenche a matriz
   // de gráficos com os caracteres necessários.
   rewind(arquivo);
-  int linhaAtual = 0;
-  int colunaAtual = 0;
-  while ((byteAtual = fgetc(arquivo)) != EOF)
+  int i = 0;
+  int j = 0;
+  while ((byte = fgetc(arquivo)) != EOF)
   {
-    if (byteAtual == '\n')
+    if (byte == '\n')
     {
-      linhaAtual++;
-      colunaAtual = 0;
+      i++;
+      j = 0;
     }
     else
     {
-      imagem[linhaAtual][colunaAtual] = byteAtual;
-      colunaAtual++;
+      imagem[i][j] = byte;
+      j++;
     }
   }
 
@@ -118,13 +118,15 @@ GRAFICO carregarGrafico(char *caminho)
   GRAFICO grafico = {
       .linhas = linhas,
       .colunas = colunas,
+      .bytesPorLinha = bytesPorLinha,
       .imagem = imagem};
   return grafico;
 }
 
 void descarregarGrafico(GRAFICO *grafico)
 {
-  // Libera o espaço alocado para o gráfico.
+  // Libera o espaço alocado para o gráfico e descarta seus valores
+  // (ponteiros para a imagem, metadados.)
   for (int i = 0; i < grafico->linhas; i++)
   {
     free(grafico->imagem[i]);
@@ -134,13 +136,14 @@ void descarregarGrafico(GRAFICO *grafico)
   grafico->imagem = NULL;
   grafico->linhas = 0;
   grafico->colunas = 0;
+  grafico->bytesPorLinha = 0;
 }
 
 void desenharGrafico(GRAFICO grafico, WINDOW *win, int y, int x)
 {
   // Obtém as dimensões da janela.
-  int altura = getmaxy(win);
-  int largura = getmaxx(win);
+  int alturaWin = getmaxy(win);
+  int larguraWin = getmaxx(win);
 
   // Calcula as coordenadas para o gráfico centralizado.
   if (y == CENTRO)
@@ -152,45 +155,42 @@ void desenharGrafico(GRAFICO grafico, WINDOW *win, int y, int x)
     x = centralizarX(win, grafico.colunas);
   }
 
-  // Itera sobre as linhas da imagem.
+  // Itera sobre as linhas da imagem. Desenha cada caractere individualmente
+  // e não desenha sobre as bordas da janela ou fora da janela.
   for (int i = 0; i < grafico.linhas; i++)
   {
     int charY = y + i;
     // Se $charY fica dentro de $win, desenha essa linha.
-    if (0 <= charY && charY <= altura)
+    if (0 < charY && charY < alturaWin)
     {
-      int bytesLidos = 0;
-      for (int j = 0; j < grafico.colunas; j++)
+      // Move o cursor para o início da linha.
+      wmove(win, charY, x);
+      for (int j = 0; j < grafico.bytesPorLinha; j++)
       {
-        int charX = x + j;
-        // Extrai um caractere UTF-8 da linha.
-        char primeiroByte = grafico.imagem[i][bytesLidos];
-        int numBytesChar;
-        // Primeiro byte é um header e é seguido por um ou mais
-        // bytes de continuação.
-        if (primeiroByte & 0x80)
+        // Determina a posição atual do cursor.
+        int charX = getcurx(win);
+
+        // Coleta o byte atual e checa se é um byte de continuação
+        // (em UTF-8, bytes do tipo 0b10xxxxxx são continuação de
+        // um code point anterior.)
+        char esseByte = grafico.imagem[i][j];
+        bool continuacao = (esseByte >> 6) == 0b10;
+
+        // Se o cursor estiver fora da tela para a esquerda e o byte
+        // atual não for a continuação de um caractere anterior, ou o
+        // byte atual for um caractere de espaço vazio, move o cursor
+        // para a direita manualmente, sem desenhar o byte.
+        if ((charX <= 0 && !continuacao) || isspace(esseByte))
         {
-          numBytesChar = 2;
-          while ((primeiroByte << numBytesChar) & 0x80)
-          {
-            numBytesChar++;
-          }
+          wmove(win, charY, charX + 1);
         }
-        // Primeiro byte é um char ASCII.
-        else
+
+        // Se o cursor estiver dentro da tela, desenha o byte (o que
+        // também avança o cursor.)
+        else if (charX < larguraWin)
         {
-          numBytesChar = 1;
+          waddch(win, esseByte);
         }
-        char esseChar[MAX_BYTES_UTF8 + 1] = {0};
-        memcpy(esseChar, &grafico.imagem[i][bytesLidos], numBytesChar);
-        // Desenha o caractere extraído se estiver dentro da janela
-        // e não for espaço em branco.
-        if (0 <= charX && charX <= largura && !isspace(primeiroByte))
-        {
-          mvwaddstr(win, charY, charX, esseChar);
-        }
-        // Avança o contador de bytes lidos.
-        bytesLidos += numBytesChar;
       }
     }
   }

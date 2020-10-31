@@ -23,6 +23,7 @@ typedef struct struct_grafico
 {
   int linhas;
   int colunas;
+  int bytesPorLinha;
   char **imagem;
 } GRAFICO;
 
