@@ -39,8 +39,8 @@ void inicializarTerminal()
   keypad(stdscr, true);
   // Desativa a espera por entradas.
   nodelay(stdscr, true);
-  // No PDCurses, tenta redimensionar a tela.
 #ifdef PDCURSES
+  // No PDCurses, tenta redimensionar a tela.
   resize_term(N_LINHAS, N_COLUNAS);
 #endif
   // Atualiza a tela.
@@ -217,6 +217,9 @@ void corrigirTamanhoDoTerminal()
 
       box(win, 0, 0);
 
+      // Reesconde o cursor.
+      curs_set(0);
+
       wrefresh(win);
     }
   }
@@ -227,9 +230,6 @@ void corrigirTamanhoDoTerminal()
   // Limpa a tela.
   clear();
   refresh();
-
-  // Reesconde o cursor.
-  curs_set(0);
 }
 
 #if defined(_WIN32) || defined(WIN32)

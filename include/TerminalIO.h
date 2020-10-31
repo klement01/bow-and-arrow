@@ -11,12 +11,6 @@
 #define N_LINHAS 35
 #define N_COLUNAS 80
 
-// Tamanho das subjanelas para os estados que as utilizam.
-#define N_LINHAS_TITULO 14
-#define N_LINHAS_MENU (N_LINHAS - N_LINHAS_TITULO + 1)
-#define N_LINHAS_CABECALHO 4
-#define N_LINHAS_JOGO (N_LINHAS - N_LINHAS_CABECALHO + 1)
-
 // Número de chars que são guardados durante uma entrada.
 #define MAX_ENTRADA 8
 
