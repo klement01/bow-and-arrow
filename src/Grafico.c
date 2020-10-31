@@ -5,10 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_BYTES_UTF_8 6
-
-// TODO: diferenciar entre chars com largura simples (halfwidth)
-// e largura dupla (fullwidth.)
+#define MAX_BYTES_UTF8 6
 
 GRAFICO carregarGrafico(char *caminho)
 {
@@ -139,7 +136,7 @@ void descarregarGrafico(GRAFICO *grafico)
   grafico->colunas = 0;
 }
 
-void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x)
+void desenharGrafico(GRAFICO grafico, WINDOW *win, int y, int x)
 {
   // Obtém as dimensões da janela.
   int altura = getmaxy(win);
@@ -148,26 +145,26 @@ void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x)
   // Calcula as coordenadas para o gráfico centralizado.
   if (y == CENTRO)
   {
-    y = (altura - grafico->linhas) / 2;
+    y = centralizarY(win, grafico.linhas);
   }
   if (x == CENTRO)
   {
-    x = (largura - grafico->colunas) / 2;
+    x = centralizarX(win, grafico.colunas);
   }
 
   // Itera sobre as linhas da imagem.
-  for (int i = 0; i < grafico->linhas; i++)
+  for (int i = 0; i < grafico.linhas; i++)
   {
     int charY = y + i;
     // Se $charY fica dentro de $win, desenha essa linha.
     if (0 <= charY && charY <= altura)
     {
       int bytesLidos = 0;
-      for (int j = 0; j < grafico->colunas; j++)
+      for (int j = 0; j < grafico.colunas; j++)
       {
         int charX = x + j;
         // Extrai um caractere UTF-8 da linha.
-        char primeiroByte = grafico->imagem[i][bytesLidos];
+        char primeiroByte = grafico.imagem[i][bytesLidos];
         int numBytesChar;
         // Primeiro byte é um header e é seguido por um ou mais
         // bytes de continuação.
@@ -184,8 +181,8 @@ void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x)
         {
           numBytesChar = 1;
         }
-        char esseChar[MAX_BYTES_UTF_8 + 1] = {0};
-        memcpy(esseChar, &grafico->imagem[i][bytesLidos], numBytesChar);
+        char esseChar[MAX_BYTES_UTF8 + 1] = {0};
+        memcpy(esseChar, &grafico.imagem[i][bytesLidos], numBytesChar);
         // Desenha o caractere extraído se estiver dentro da janela
         // e não for espaço em branco.
         if (0 <= charX && charX <= largura && !isspace(primeiroByte))

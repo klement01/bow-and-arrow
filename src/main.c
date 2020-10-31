@@ -1,15 +1,16 @@
 #include <Objeto.h>
 #include <Grafico.h>
+#include <Placar.h>
 #include <TerminalIO.h>
 #include <Timer.h>
 
-#include <locale.h>
+#include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 // Define os estados em que o jogo pode estar.
-typedef enum enum_estado
+typedef enum estado
 {
   FIM,
   MENU,
@@ -18,9 +19,9 @@ typedef enum enum_estado
   GAMEOVER,
 } ESTADO;
 
-ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado);
-ESTADO atualizarPlacar(CONTROLE *controle, float dt, bool trocaDeEstado);
-ESTADO atualizarJogo(CONTROLE *controle, float dt, bool trocaDeEstado);
+ESTADO atualizarMenu(ENTRADA *entrada, float dt, bool trocaDeEstado);
+ESTADO atualizarPlacar(ENTRADA *entrada, float dt, bool trocaDeEstado);
+ESTADO atualizarJogo(ENTRADA *entrada, float dt, bool trocaDeEstado);
 void carregarMateriais();
 void descarregarMateriais();
 
@@ -30,9 +31,6 @@ int main()
     Setup: carrega todos os recursos e configura os dados
     dos objetos (jogador, flechas, balões, etc.)
   */
-
-  // Muda o local dos chars para o local do sistema.
-  setlocale(LC_CTYPE, "");
 
   // Define o estado inicial do jogo.
   ESTADO estado = MENU;
@@ -65,12 +63,12 @@ int main()
     // Calcula o tempo transcorrido desde o último quadro.
     float dt = calcularDeltaTempo();
 
-    // Coleta caracteres de controle geradas pelo usuário e pelo curses
-    // durante o último quadro.
-    CONTROLE controle = verificarTeclasDeControle();
+    // Coleta uma cópia do buffer de entrada no início do quadro
+    // e o estado de diversos eventos de controle.
+    ENTRADA entrada = processarEntrada();
 
     // Corrige o tamanho do terminal se ele tiver mudado.
-    if (controle.terminalRedimensionado)
+    if (entrada.terminalRedimensionado)
     {
       corrigirTamanhoDoTerminal();
       reiniciarTimer();
@@ -84,13 +82,13 @@ int main()
     switch (estado)
     {
     case MENU:
-      estado = atualizarMenu(&controle, dt, trocaDeEstado);
+      estado = atualizarMenu(&entrada, dt, trocaDeEstado);
       break;
     case PLACAR:
-      estado = atualizarPlacar(&controle, dt, trocaDeEstado);
+      estado = atualizarPlacar(&entrada, dt, trocaDeEstado);
       break;
     case JOGO:
-      estado = atualizarJogo(&controle, dt, trocaDeEstado);
+      estado = atualizarJogo(&entrada, dt, trocaDeEstado);
       break;
     }
 
@@ -113,12 +111,11 @@ int main()
 struct
 {
   GRAFICO gTitulo;
-  GRAFICO gOpcoes;
   WINDOW *wTitulo;
   WINDOW *wOpcoes;
 } menu;
 
-ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
+ESTADO atualizarMenu(ENTRADA *entrada, float dt, bool trocaDeEstado)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = MENU;
@@ -126,17 +123,26 @@ ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
   // O estado selecionado pelo cursor.
   static ESTADO selecao = JOGO;
 
-  // A posição e passo do cursor.
-  const int NUM_OPCOES = 3;
-  const int OFFSET_X = 3;
-  const int PASSO_Y = 1;
-  int origem_y = (getmaxy(menu.wOpcoes) - menu.gOpcoes.linhas) / 2;
-  int origem_x = (getmaxx(menu.wOpcoes) - menu.gOpcoes.colunas) / 2;
+  // Regenera as janelas após redimensionamento / troca de estado.
+  if (entrada->terminalRedimensionado || trocaDeEstado)
+  {
+    destruirJanela(&menu.wTitulo);
+    destruirJanela(&menu.wOpcoes);
+  }
+  if (!menu.wTitulo)
+  {
+    menu.wTitulo = criarJanela(N_LINHAS_TITULO, N_COLUNAS, 0, 0);
+    wattr_on(menu.wTitulo, A_BOLD, NULL);
+  }
+  if (!menu.wOpcoes)
+  {
+    menu.wOpcoes = criarJanela(N_LINHAS_MENU, N_COLUNAS, N_LINHAS_TITULO - 1, 0);
+  }
 
-  // Processa os controler do usuário, seguindo a hierarquia de prioridade
+  // Processa os controles do usuário, seguindo a hierarquia de prioridade
   // cima > baixo > retorna > confirma. Primeiro, altera a seleção de
   // acordo com a tecla de deslocamento pressionada.
-  if (controle->cima)
+  if (entrada->cima)
   {
     if (selecao == PLACAR)
     {
@@ -147,7 +153,7 @@ ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
       selecao = PLACAR;
     }
   }
-  else if (controle->baixo)
+  else if (entrada->baixo)
   {
     if (selecao == JOGO)
     {
@@ -158,21 +164,13 @@ ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
       selecao = FIM;
     }
   }
-  // Se o usuário tenta retornar, seleciona o fim. Se já tiver sido
-  // selecionado, fecha o jogo.
-  else if (controle->retorna)
+  // Se o usuário tenta retornar, seleciona o fim.
+  else if (entrada->retorna)
   {
-    if (selecao == FIM)
-    {
-      estado = FIM;
-    }
-    else
-    {
-      selecao = FIM;
-    }
+    selecao = FIM;
   }
   // Se o usuário confirmou a seleção, muda o estado para essa seleção.
-  else if (controle->confirma)
+  else if (entrada->confirma)
   {
     estado = selecao;
   }
@@ -181,29 +179,58 @@ ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
   werase(menu.wTitulo);
   werase(menu.wOpcoes);
 
-  // Desenha o título e as opções.
-  desenharGrafico(&menu.gTitulo, menu.wTitulo, CENTRO, CENTRO);
-  box(menu.wTitulo, 0, 0);
-  desenharGrafico(&menu.gOpcoes, menu.wOpcoes, CENTRO, CENTRO);
-  wborder(menu.wOpcoes, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE, 0, 0);
+  // Calcula as coordenadas do texto do menu.
+  const int ALTURA = 3;
+  int origemY = centralizarY(menu.wOpcoes, ALTURA);
+  int origemX = centroX(menu.wOpcoes);
 
-  // Desenha o cursor de seleção em sua nova posição.
-  int offset_y;
+  int jogoY = origemY;
+  int placarY = origemY + 1;
+  int sairY = origemY + 2;
+  int opcoesX = origemX - 8;
+
+  // Determina a posição da flecha de seleção na tela e os atributos
+  // dos textos de opção.
+  attr_t jogoAttr = 0;
+  attr_t placarAttr = 0;
+  attr_t sairAttr = 0;
+  attr_t selecionadoAttr = A_BOLD;
+  int flechaY;
+  int flechaX = opcoesX - 2;
   switch (selecao)
   {
   case JOGO:
-    offset_y = 0 * PASSO_Y;
+    flechaY = jogoY;
+    jogoAttr = selecionadoAttr;
     break;
   case PLACAR:
-    offset_y = 1 * PASSO_Y;
+    flechaY = placarY;
+    placarAttr = selecionadoAttr;
     break;
   case FIM:
-    offset_y = 2 * PASSO_Y;
+    flechaY = sairY;
+    sairAttr = selecionadoAttr;
     break;
   }
-  wattr_on(menu.wOpcoes, A_BOLD, NULL);
-  mvwprintw(menu.wOpcoes, origem_y + offset_y, origem_x + OFFSET_X, "➤");
-  wattr_off(menu.wOpcoes, A_BOLD, NULL);
+
+  // Desenha o título, as opções e a flecha de seleção.
+  desenharGrafico(menu.gTitulo, menu.wTitulo, CENTRO, CENTRO);
+  box(menu.wTitulo, 0, 0);
+
+  wattr_on(menu.wOpcoes, jogoAttr, NULL);
+  mvwaddstr(menu.wOpcoes, jogoY, opcoesX, "NOVO JOGO");
+  wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
+  wattr_on(menu.wOpcoes, placarAttr, NULL);
+  mvwaddstr(menu.wOpcoes, placarY, opcoesX, "MAIORES PLACARES");
+  wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
+  wattr_on(menu.wOpcoes, sairAttr, NULL);
+  mvwaddstr(menu.wOpcoes, sairY, opcoesX, "SAIR");
+  wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
+  wborder(menu.wOpcoes, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE, 0, 0);
+
+  wattr_on(menu.wOpcoes, selecionadoAttr, NULL);
+  mvwaddstr(menu.wOpcoes, flechaY, flechaX, ">");
+  wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
 
   // Adiciona as janelas à fila de janelas a serem atualizadas
   // no fim do quadro.
@@ -223,14 +250,57 @@ ESTADO atualizarMenu(CONTROLE *controle, float dt, bool trocaDeEstado)
 
 struct
 {
-  FILE *highscores;
-  // TODO: adicionar arranjo/estrutura de scores.
+  FILE *arqScores;
+  TIPO_JOGADOR scores[MAX_SCORES];
+  int numScores;
 } placar;
 
-ESTADO atualizarPlacar(CONTROLE *controle, float dt, bool trocaDeEstado)
+ESTADO atualizarPlacar(ENTRADA *entrada, float dt, bool trocaDeEstado)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = PLACAR;
+
+  // Volta ao menu se o jogador pressionar retorna.
+  if (entrada->retorna)
+  {
+    estado = MENU;
+  }
+
+  // Limpa a janela.
+  erase();
+
+  // Coordenadas de base para o placar.
+  int ALTURA = MAX_SCORES + 1;
+  int LARGURA = PLACAR_TOTAL;
+  int origemY = centralizarY(stdscr, ALTURA);
+  int origemX = centralizarX(stdscr, LARGURA);
+
+  // Desenha o cabeçalho.
+  attr_t attrCabecalho = A_BOLD | A_UNDERLINE;
+  attr_on(attrCabecalho, NULL);
+  mvprintw(origemY, origemX, "%s", "Nome");
+  printw("%*s", LARGURA - 4, "Score");
+  attroff(attrCabecalho);
+
+  // Desenha os scores em si.
+  for (int i = 0; i < placar.numScores; i++)
+  {
+    move(origemY + i + 1, origemX);
+    printw("%-*s", PLACAR_NOME, placar.scores[i].nome);
+    printw("%*s", PLACAR_SEPARADOR, "");
+    printw("%*d", PLACAR_SCORE, placar.scores[i].score);
+  }
+
+  // Desenha a mensagem para voltar.
+  centralizarString(
+      stdscr,
+      centroY(stdscr) + ALTURA,
+      "Pressione BACKSPACE [<--   ] para voltar ao menu");
+
+  // Adiciona a janela padrão à fila de janelas a serem atualizadas
+  // no fim do quadro.
+  wnoutrefresh(stdscr);
+
   return estado;
 }
 
@@ -245,18 +315,154 @@ ESTADO atualizarPlacar(CONTROLE *controle, float dt, bool trocaDeEstado)
 
 struct
 {
-  GRAFICO gArqueiro;
-  GRAFICO gFlecha;
-  GRAFICO gBalao;
-  GRAFICO gMonstro;
+  // Protótipos de objetos do jogo.
+  OBJETO objJogador;
+  OBJETO objFlecha;
+  OBJETO objBalao;
+  OBJETO objMonstro;
+  // Janelas.
   WINDOW *wCabecalho;
   WINDOW *wJogo;
+  // Variáveis globais do jogo.
+  OBJETO objetos[MAX_OBJETOS];
+  int score;
 } jogo;
 
-ESTADO atualizarJogo(CONTROLE *controle, float dt, bool trocaDeEstado)
+OBJETO *inserirObjeto(OBJETO *objeto)
+{
+  // Procura um objeto inativo que pode ser substituido pelo novo
+  // objeto.
+  int indice = 0;
+  bool inserido = false;
+  while (indice < MAX_OBJETOS && !inserido)
+  {
+    if (jogo.objetos[indice].estado == INATIVO)
+    {
+      jogo.objetos[indice] = *objeto;
+      jogo.objetos[indice].estado = VIVO;
+      inserido = true;
+    }
+    indice++;
+  }
+  assert(inserido);
+  // Retorna um ponteiro para o objeto inserido.
+  return &jogo.objetos[indice];
+}
+
+ESTADO atualizarJogo(ENTRADA *entrada, float dt, bool trocaDeEstado)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = JOGO;
+
+  // Regenera as janelas após redimensionamento / troca de estado.
+  if (entrada->terminalRedimensionado || trocaDeEstado)
+  {
+    destruirJanela(&jogo.wCabecalho);
+    destruirJanela(&jogo.wJogo);
+  }
+  if (!jogo.wCabecalho)
+  {
+    jogo.wCabecalho = criarJanela(N_LINHAS_CABECALHO, N_COLUNAS, 0, 0);
+  }
+  if (!jogo.wJogo)
+  {
+    jogo.wJogo = criarJanela(N_LINHAS_JOGO, N_COLUNAS, N_LINHAS_CABECALHO - 1, 0);
+  }
+
+  // Variáveis persistentes.
+  static OBJETO *jogador;
+  static int nivel, ultimoNivel;
+  static int numInimigos;
+  static int numFlechas;
+  static bool flechaAtiva;
+
+  // Configura os elementos do jogo após troca de estado (novo jogo.)
+  if (trocaDeEstado)
+  {
+    // Desativa todos os objetos.
+    for (int i = 0; i < MAX_OBJETOS; i++)
+    {
+      jogo.objetos[MAX_OBJETOS].estado = INATIVO;
+    }
+    // Cria um objeto para o jogador.
+    jogador = inserirObjeto(&jogo.objJogador);
+    // Reseta variáveis persistentes para seus valores iniciais.
+    jogo.score = 0;
+    nivel = 1;
+    ultimoNivel = 0;
+    flechaAtiva = false;
+  }
+
+  // Checa se houve uma troca de nível.
+  bool trocaDeNivel = nivel != ultimoNivel;
+  ultimoNivel = nivel;
+
+  // Se houve trocar de nível, reseta as variáveis de acordo com
+  // o nível.
+  if (trocaDeNivel)
+  {
+    // TODO: lógica de troca de nível.
+  }
+
+  // Se o usuário tiver pressionado espaço e não houver uma flecha na
+  // tela, cria uma nova flecha junto ao jogador.
+  if (entrada->espaco && !flechaAtiva)
+  {
+    OBJETO *novaFlecha = inserirObjeto(&jogo.objFlecha);
+    novaFlecha->y = jogador->y + 3;
+  }
+
+  // Atualiza e desenha os objetos do jogo.
+  werase(jogo.wJogo);
+  for (int i = 0; i < MAX_OBJETOS; i++)
+  {
+    atualizarObjeto(&jogo.objetos[i], dt);
+  }
+  for (int i = 0; i < MAX_OBJETOS; i++)
+  {
+    desenharObjeto(&jogo.objetos[i], jogo.wJogo);
+  }
+  wborder(jogo.wJogo, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE, 0, 0);
+
+  // Desativa os objetos mortos.
+  for (int i = 0; i < MAX_OBJETOS; i++)
+  {
+    OBJETO *esseObj = &jogo.objetos[i];
+    if (esseObj->estado == MORTO)
+    {
+      esseObj->estado = INATIVO;
+      switch (esseObj->id)
+      {
+      case JOGADOR:
+        estado = GAMEOVER;
+        break;
+        // TODO: adicionar lógica para outros objetos mortos.
+      }
+    }
+  }
+
+  // Se não houverem mais inimigos, avança de nível.
+  if (numInimigos == 0)
+  {
+    nivel++;
+  }
+  // Se ainda houverem inimigos e o jogador estiver sem flechas,
+  // o jogo acaba.
+  else if (!flechaAtiva && numFlechas == 0) // && numInimigos != 0
+  {
+    estado = GAMEOVER;
+  }
+
+  // Desenha o cabeçalho.
+  werase(jogo.wCabecalho);
+  box(jogo.wCabecalho, 0, 0);
+  // TODO: cabeçalho.
+
+  // Adiciona as janelas à fila de janelas a serem atualizadas
+  // no fim do quadro.
+  wnoutrefresh(jogo.wCabecalho);
+  wnoutrefresh(jogo.wJogo);
+
   return estado;
 }
 
@@ -272,32 +478,57 @@ void carregarMateriais()
 {
   // Menu principal.
   menu.gTitulo = carregarGrafico("materiais/titulo.txt");
-  menu.gOpcoes = carregarGrafico("materiais/menu.txt");
-  menu.wTitulo = criarJanela(N_LINHAS_TITULO, N_COLUNAS, 0, 0);
-  menu.wOpcoes = criarJanela(N_LINHAS_MENU, N_COLUNAS, N_LINHAS_TITULO - 1, 0);
+
+  // Placar.
+  placar.arqScores = lerScores("materiais/highscores.bin", placar.scores, &placar.numScores);
 
   // Jogo.
-  jogo.gArqueiro = carregarGrafico("materiais/arqueiro.txt");
-  jogo.gFlecha = carregarGrafico("materiais/flecha.txt");
-  jogo.gBalao = carregarGrafico("materiais/balao.txt");
-  jogo.gMonstro = carregarGrafico("materiais/monstro.txt");
-  jogo.wCabecalho = criarJanela(N_LINHAS_CABECALHO, N_COLUNAS, 0, 0);
-  jogo.wJogo = criarJanela(N_LINHAS_JOGO, N_COLUNAS, N_LINHAS_CABECALHO - 1, 0);
+  jogo.objJogador.id = JOGADOR;
+  jogo.objJogador.x = 5;
+  jogo.objJogador.y = (N_LINHAS_JOGO / 2);
+  jogo.objJogador.vx = 0;
+  jogo.objJogador.vy = 10;
+  jogo.objJogador.grafico = carregarGrafico("materiais/arqueiro.txt");
+
+  jogo.objFlecha.id = FLECHA;
+  jogo.objFlecha.x = jogo.objJogador.x + jogo.objJogador.grafico.colunas;
+  jogo.objFlecha.y = -127; // Deve ser definido quando atirada.
+  jogo.objFlecha.vx = 0;
+  jogo.objFlecha.vy = 0;
+  jogo.objFlecha.grafico = carregarGrafico("materiais/flecha.txt");
+
+  jogo.objBalao.id = BALAO;
+  jogo.objBalao.x = -127; // Deve ser definido quando criado.
+  jogo.objBalao.y = N_LINHAS_JOGO + BUFFER;
+  jogo.objBalao.vx = 0;
+  jogo.objBalao.vy = 10;
+  jogo.objBalao.grafico = carregarGrafico("materiais/balao.txt");
+
+  jogo.objMonstro.id = MONSTRO;
+  jogo.objMonstro.x = N_COLUNAS + BUFFER;
+  jogo.objMonstro.y = -127; // Deve ser definido quando criado.
+  jogo.objMonstro.vx = -10;
+  jogo.objMonstro.vy = 0;
+  jogo.objMonstro.grafico = carregarGrafico("materiais/monstro.txt");
 }
 
 void descarregarMateriais()
 {
   // Menu principal.
   descarregarGrafico(&menu.gTitulo);
-  descarregarGrafico(&menu.gOpcoes);
-  delwin(menu.wTitulo);
-  delwin(menu.wOpcoes);
+
+  destruirJanela(&menu.wTitulo);
+  destruirJanela(&menu.wOpcoes);
+
+  // Placar.
+  fclose(placar.arqScores);
 
   // Jogo.
-  descarregarGrafico(&jogo.gArqueiro);
-  descarregarGrafico(&jogo.gFlecha);
-  descarregarGrafico(&jogo.gBalao);
-  descarregarGrafico(&jogo.gMonstro);
-  delwin(jogo.wCabecalho);
-  delwin(jogo.wJogo);
+  descarregarGrafico(&jogo.objJogador.grafico);
+  descarregarGrafico(&jogo.objFlecha.grafico);
+  descarregarGrafico(&jogo.objBalao.grafico);
+  descarregarGrafico(&jogo.objMonstro.grafico);
+
+  destruirJanela(&jogo.wCabecalho);
+  destruirJanela(&jogo.wJogo);
 }

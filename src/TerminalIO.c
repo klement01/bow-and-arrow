@@ -5,10 +5,15 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef XCURSES
-// Conexão com o servidor X, aberta durante a inicialização do terminal.
+/*
+  Conexão com servidor X.
+*/
+#include <X11/Xlib.h>
 Display *xServer = NULL;
+
 #endif
 
 void inicializarTerminal()
@@ -66,45 +71,92 @@ WINDOW *criarJanela(int altura, int largura, int posy, int posx)
   return win;
 }
 
-CONTROLE verificarTeclasDeControle()
+void destruirJanela(WINDOW **win)
 {
-  // Variável de controle inicializada com zeros (ou seja, false.)
-  CONTROLE controle = {0};
+  if (*win)
+  {
+    delwin(*win);
+    *win = NULL;
+  }
+}
+
+int centroY(WINDOW *win)
+{
+  return getmaxy(win) / 2;
+}
+
+int centroX(WINDOW *win)
+{
+  return getmaxx(win) / 2;
+}
+
+int centralizarY(WINDOW *win, int altura)
+{
+  return (getmaxy(win) - altura) / 2;
+}
+
+int centralizarX(WINDOW *win, int largura)
+{
+  return (getmaxx(win) - largura) / 2;
+}
+
+void centralizarString(WINDOW *win, int y, char *str)
+{
+  int comprimento = strlen(str);
+  mvwaddstr(win, y, centralizarX(win, comprimento), str);
+}
+
+ENTRADA processarEntrada()
+{
+  // Variável de entrada inicializada com zeros.
+  ENTRADA entrada = {0};
 
   // Itera sobre a stream de entrada do curses até ela ser exausta.
   int ch;
   while ((ch = getch()) != ERR)
   {
+    // Se houver espaço, guarda o char atual na cópia do buffer de
+    // entrada.
+    if (entrada.tamBuffer < MAX_ENTRADA && (ch & 0xFF))
+    {
+      entrada.buffer[entrada.tamBuffer] = (ch & 0xFF);
+      entrada.tamBuffer++;
+    }
+
     // A diferença entre maiúsculas e minúsculas (ex.: Q, Shift+Q)
-    // não é considerada.
+    // não é considerada para caracteres de controle.
     ch = tolower(ch);
     switch (ch)
     {
     // Teclas de controle geradas pelo usuário.
     case KEY_UP:
     case 'w':
-      controle.cima = true;
+      entrada.cima = true;
       break;
     case KEY_DOWN:
     case 's':
-      controle.baixo = true;
+      entrada.baixo = true;
       break;
     case KEY_ENTER:
     case '\n':
     case '\r':
-      controle.confirma = true;
+      entrada.confirma = true;
       break;
     case KEY_BACKSPACE:
     case '\b':
-      controle.retorna = true;
+      entrada.retorna = true;
+      break;
+    case ' ':
+      entrada.espaco = true;
       break;
     // Teclas de controle geradas pelo curses.
     case KEY_RESIZE:
-      controle.terminalRedimensionado = true;
+      entrada.terminalRedimensionado = true;
       break;
     }
   }
-  return controle;
+
+  return entrada;
 }
 
 bool verificarTamanhoDoTerminal()
@@ -119,75 +171,65 @@ bool verificarTamanhoDoTerminal()
 
 void corrigirTamanhoDoTerminal()
 {
-  // TODO: reescrever função para ser mais eficiente (ver werase().)
-  // TODO: resolver reaparecimento do cursor no Windows.
-  // TODO: resolver flickering no Windows.
-
   // Limpa a tela.
   clear();
   refresh();
 
   // Configurações da window de aviso.
   const int ALTURA = 5, LARGURA = 32;
-  int posy = -1, posx = -1;
+  int ultimaOrigemY = -1, ultimaOrigemX = -1;
   WINDOW *win = NULL;
 
   while (!verificarTamanhoDoTerminal())
   {
-    // Determina o tamanho atual do terminal e a posição da
-    // janela dentro dele.
-    int yterm = getmaxy(stdscr), xterm = getmaxx(stdscr);
-    int nposy = (yterm - ALTURA) / 2, nposx = (xterm - LARGURA) / 2;
+    // Calcula origem da janela de mensagem.
+    int origemY = centralizarY(stdscr, ALTURA);
+    int origemX = centralizarX(stdscr, LARGURA);
 
-    // Se a janela tiver se movido, apaga sua posição antiga e
-    // a move.
-    if (nposy != posy || nposx != posx)
+    // Se a origem tiver mudado, destrói a janela e limpa a tela.
+    if (origemY != ultimaOrigemY || origemX != ultimaOrigemX)
     {
-      // Limpa a tela se a janela for movida e deleta a window.
-      if (win)
-      {
-        delwin(win);
-      }
+      destruirJanela(&win);
       clear();
       refresh();
-
-      // Se o terminal tiver o tamanho necessário, cria uma nova
-      // window. Uso de 1 em vez de 0 criar um buffer que previne
-      // alguns artefatos.
-      if (nposy >= 1 && nposx >= 1)
-      {
-        posy = nposy;
-        posx = nposx;
-        win = criarJanela(ALTURA, LARGURA, posy, posx);
-      }
-      // Se não, torna o ponteiro da window nulo.
-      else
-      {
-        posy = -1;
-        posx = -1;
-        win = NULL;
-      }
     }
+    ultimaOrigemY = origemY;
+    ultimaOrigemX = origemX;
 
-    // Se houver uma window, mostra informações sobre o estado do
-    // terminal nela.
-    if (win)
+    // Se o tamanho da janela for suficiente, mostra informações nela.
+    if (origemY >= 1 && origemX >= 1)
     {
+      // Cria uma janela se ela não existir.
+      if (!win)
+      {
+        win = criarJanela(ALTURA, LARGURA, origemY, origemX);
+      }
+
+      // Mostra a mensagem.
+      wmove(win, 1, 2);
+      wprintw(win, "Tamanho incorreto da janela");
+
+      wmove(win, 2, 2);
+      wprintw(win, "Tamanho esperado: %3d x %3d", N_COLUNAS, N_LINHAS);
+
+      wmove(win, 3, 2);
+      wprintw(win, "Tamanho real:     %3d x %3d", getmaxx(stdscr), getmaxy(stdscr));
+
       box(win, 0, 0);
-      mvwprintw(win, 1, 2, "Tamanho incorreto da janela");
-      mvwprintw(win, 2, 2, "Tamanho esperado: %3d x %3d", N_COLUNAS, N_LINHAS);
-      mvwprintw(win, 3, 2, "Tamanho real:     %3d x %3d", xterm, yterm);
+
       wrefresh(win);
     }
   }
 
   // Deleta a janela.
-  if (win)
-  {
-    delwin(win);
-  };
+  destruirJanela(&win);
+
+  // Limpa a tela.
   clear();
   refresh();
+
+  // Reesconde o cursor.
+  curs_set(0);
 }
 
 #if defined(_WIN32) || defined(WIN32)
@@ -225,5 +267,8 @@ bool teclaPressionada(TECLA_ASYNC tecla)
 
   return pressionada;
 }
+
+#else
+#error Nenhum método de entrada assíncrona definido
 
 #endif

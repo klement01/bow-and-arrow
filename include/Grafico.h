@@ -15,6 +15,10 @@
 */
 #define CENTRO -128
 
+/*
+  Estrutura com ponteiro para uma matriz com os caracteres de um
+  gráficos e informações sobre esse gráfico.
+*/
 typedef struct struct_grafico
 {
   int linhas;
@@ -38,6 +42,6 @@ void descarregarGrafico(GRAFICO *grafico);
   $CENTRO for passado para uma das coordenadas, centraliza o gráfico
   dentro da janela nessa coordenada.
 */
-void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x);
+void desenharGrafico(GRAFICO grafico, WINDOW *win, int y, int x);
 
 #endif
