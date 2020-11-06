@@ -8,12 +8,12 @@
 /*
   Reinicia / inicializa o timer.
 */
-void iniciarTimer();
+void iniciarTimer(void);
 
 /*
   Retorna o tempo em segundos desde a última inicialização do timer.
 */
-double timerAtual();
+double timerAtual(void);
 
 /*
   Pausa a execução do programa por alguns segundos.

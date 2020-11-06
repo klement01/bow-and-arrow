@@ -7,22 +7,10 @@
   arquivos de placar.
 */
 
+#include <Configs.h>
+
 #include <stdbool.h>
 #include <stdio.h>
-
-/*
-  Constantes sobre o tamanho de estruturas.
-*/
-#define TAM_NOME 40
-#define MAX_SCORES 5
-
-/*
-  Constantes de formatação.
-*/
-#define PLACAR_NOME (TAM_NOME - 1)
-#define PLACAR_SEPARADOR 3
-#define PLACAR_SCORE 6
-#define PLACAR_TOTAL (PLACAR_NOME + PLACAR_SEPARADOR + PLACAR_SCORE)
 
 /*
   Estrutura com um nome de jogador e sua pontação.
@@ -39,7 +27,7 @@ typedef struct tipo_jogador
   arquivo aberto. Coloca o número de scores efetivamente lidos no local
   apontado por $num_scores.
 */
-FILE *lerScores(char *caminho, TIPO_JOGADOR placar[], int *numScores);
+FILE *lerScores(const char *caminho, TIPO_JOGADOR placar[], int *numScores);
 
 /*
   Retorna true se $novoScore se qualifica para entrar em $placar.

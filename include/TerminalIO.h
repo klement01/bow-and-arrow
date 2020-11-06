@@ -33,6 +33,9 @@ typedef enum tecla_async
 {
   W = 0x57,
   A = 0x41,
+  S = 0x53,
+  D = 0x44,
+  ESPACO = VK_SPACE
 } TECLA_ASYNC;
 
 #else
@@ -55,6 +58,9 @@ typedef enum tecla_async
 {
   W = XK_w,
   A = XK_a,
+  S = XK_s,
+  D = XK_d,
+  ESPACO = XK_space
 } TECLA_ASYNC;
 
 #endif
@@ -75,18 +81,19 @@ typedef struct entrada
   bool confirma;
   bool retorna;
   bool espaco;
+  bool pause;
   bool terminalRedimensionado;
 } ENTRADA;
 
 /*
   Cria uma instância de um terminal.
 */
-void inicializarTerminal();
+void inicializarTerminal(void);
 
 /*
   Fecha o terminal.
 */
-void fecharTerminal();
+void fecharTerminal(void);
 
 /*
   Cria uma janela na posição desejada e com com o tamanho especificado,
@@ -122,26 +129,31 @@ int centralizarY(WINDOW *win, int altura);
 int centralizarX(WINDOW *win, int largura);
 
 /*
+  Retorna true se $c for a continuacao de um byte anterior (UTF-8.)
+*/
+bool continuacao(char c);
+
+/*
   Desenha uma string no centro da linha especificada.
 */
-void centralizarString(WINDOW *win, int y, char *str);
+void centralizarString(WINDOW *win, int y, const char *str);
 
 /*
   Retorna uma estrutura com os estados das teclas de controle do
   buffer de entrada, e retorna quantos caracteres podem ser lidos
   do buffer de entrada.
 */
-ENTRADA processarEntrada();
+ENTRADA *processarEntrada(ENTRADA *entrada);
 
 /*
   Retorna true se o tamanho do terminal estiver correto.*/
-bool verificarTamanhoDoTerminal();
+bool verificarTamanhoDoTerminal(void);
 
 /*
   Pede para o usuário redimensionar o terminal se estiver com o tamanho
   incorreto, e retorna true se isso foi necessário.
 */
-void corrigirTamanhoDoTerminal();
+void corrigirTamanhoDoTerminal(void);
 
 /*
   Retorna true se $tecla está pressionada nesse momento, sem esperar

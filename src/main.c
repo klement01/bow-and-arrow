@@ -4,6 +4,7 @@
 #include <TerminalIO.h>
 #include <Timer.h>
 
+#include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,15 +30,19 @@ ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt);
-void carregarMateriais();
-void descarregarMateriais();
 
-int main()
+void carregarMateriais(void);
+void descarregarMateriais(void);
+
+int main(void)
 {
   /*
     Setup: carrega todos os recursos e configura os dados
     dos objetos (jogador, flechas, balões, etc.)
   */
+  
+  // Configura locale para chars.
+  setlocale(LC_CTYPE, "");
 
   // Define o estado inicial do jogo.
   ESTADO estado = MENU;
@@ -74,7 +79,8 @@ int main()
 
     // Coleta uma cópia do buffer de entrada no início do quadro
     // e o estado de diversos eventos de controle.
-    ENTRADA entrada = processarEntrada();
+    ENTRADA entrada = {0};
+    processarEntrada(&entrada);
 
     // Corrige o tamanho do terminal se ele tiver mudado.
     if (entrada.terminalRedimensionado)
@@ -239,8 +245,8 @@ ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt)
   }
 
   // Desenha o título, as opções e a flecha de seleção.
-  desenharGrafico(menu.gTitulo, menu.wTitulo, CENTRO, CENTRO);
-  box(menu.wTitulo, 0, 0);
+  desenharGrafico(&menu.gTitulo, menu.wTitulo, CENTRO, CENTRO);
+  wborder(menu.wTitulo, 0, 0, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE);
 
   wattr_on(menu.wOpcoes, jogoAttr, NULL);
   mvwaddstr(menu.wOpcoes, jogoY, origemX, "NOVO JOGO");
@@ -404,10 +410,10 @@ ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt)
  *                                                               
  */
 
-void carregarMateriais()
+void carregarMateriais(void)
 {
   // Menu principal.
-  menu.gTitulo = carregarGrafico("materiais/titulo.txt");
+  carregarGrafico(&menu.gTitulo, "materiais/titulo.txt");
 
   // Placar.
   placar.arqScores = lerScores(
@@ -419,7 +425,7 @@ void carregarMateriais()
   carregarMateriaisDoJogo();
 }
 
-void descarregarMateriais()
+void descarregarMateriais(void)
 {
   // Menu principal.
   descarregarGrafico(&menu.gTitulo);

@@ -24,12 +24,12 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
   Carrega os materiais que serão usado pelo jogo em si. Deve ser chamada
   antes do início do jogo.
 */
-void carregarMateriaisDoJogo();
+void carregarMateriaisDoJogo(void);
 
 /*
   Descarrega os materiais que serão usado pelo jogo em si. Deve ser
   chamada no final do programa.
 */
-void descarregarMateriaisDoJogo();
+void descarregarMateriaisDoJogo(void);
 
 #endif

@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +15,7 @@ Display *xServer = NULL;
 
 #endif
 
-void inicializarTerminal()
+void inicializarTerminal(void)
 {
 #ifdef XCURSES
   // Abre conexão com servidor X principal.
@@ -47,7 +46,7 @@ void inicializarTerminal()
   refresh();
 }
 
-void fecharTerminal()
+void fecharTerminal(void)
 {
   // Fecha janela do curses.
   endwin();
@@ -100,27 +99,43 @@ int centralizarX(WINDOW *win, int largura)
   return (getmaxx(win) - largura) / 2;
 }
 
-void centralizarString(WINDOW *win, int y, char *str)
+bool continuacao(char c)
 {
-  int comprimento = strlen(str);
+  return (c >> 6) == 0x2;
+}
+
+void centralizarString(WINDOW *win, int y, const char *str)
+{
+  // Conta o número de caracteres, levando em conta que
+  // caracteres UTF-8 têm comprimento variável.
+  int comprimento = 0;
+  int i = 0;
+  while (str[i] != '\0')
+  {
+    if (!continuacao(str[i]))
+    {
+      comprimento++;
+    }
+    i++;
+  }
   mvwaddstr(win, y, centralizarX(win, comprimento), str);
 }
 
-ENTRADA processarEntrada()
+ENTRADA *processarEntrada(ENTRADA *entrada)
 {
-  // Variável de entrada inicializada com zeros.
-  ENTRADA entrada = {0};
+  // Limpa a struct de entrada.
+  memset(entrada, false, sizeof(entrada));
 
   // Itera sobre a stream de entrada do curses até ela ser exausta.
   int ch;
   while ((ch = getch()) != ERR)
   {
     // Se houver espaço, guarda o char atual na cópia do buffer de
-    // entrada.
-    if (entrada.tamBuffer < MAX_ENTRADA && (ch & 0xFF))
+    // entrada->
+    if (entrada->tamBuffer < MAX_ENTRADA && (ch & 0xFF))
     {
-      entrada.buffer[entrada.tamBuffer] = (ch & 0xFF);
-      entrada.tamBuffer++;
+      entrada->buffer[entrada->tamBuffer] = (ch & 0xFF);
+      entrada->tamBuffer++;
     }
 
     // A diferença entre maiúsculas e minúsculas (ex.: Q, Shift+Q)
@@ -131,35 +146,45 @@ ENTRADA processarEntrada()
     // Teclas de controle geradas pelo usuário.
     case KEY_UP:
     case 'w':
-      entrada.cima = true;
+      entrada->cima = true;
       break;
     case KEY_DOWN:
     case 's':
-      entrada.baixo = true;
+      entrada->baixo = true;
       break;
     case KEY_ENTER:
     case '\n':
     case '\r':
-      entrada.confirma = true;
+      entrada->confirma = true;
       break;
     case KEY_BACKSPACE:
     case '\b':
-      entrada.retorna = true;
+      entrada->retorna = true;
       break;
     case ' ':
-      entrada.espaco = true;
+      entrada->espaco = true;
+      break;
+    // Código do ALT / Esc. Próximo caractere deve ser
+    // testado para ver se é ESC ou ALT.
+    case 27:
+      if ((ch = getch()) != ERR)
+      {
+        ungetch(ch);
+        break;
+      }
+    case 'p':
+      entrada->pause = true;
       break;
     // Teclas de controle geradas pelo curses.
     case KEY_RESIZE:
-      entrada.terminalRedimensionado = true;
+      entrada->terminalRedimensionado = true;
       break;
     }
   }
-
   return entrada;
 }
 
-bool verificarTamanhoDoTerminal()
+bool verificarTamanhoDoTerminal(void)
 {
 #ifdef PDCURSES
   // No PDCurses, o tamanho deve ser atualizado
@@ -169,7 +194,7 @@ bool verificarTamanhoDoTerminal()
   return getmaxy(stdscr) == N_LINHAS && getmaxx(stdscr) == N_COLUNAS;
 }
 
-void corrigirTamanhoDoTerminal()
+void corrigirTamanhoDoTerminal(void)
 {
   // Limpa a tela.
   clear();
@@ -255,7 +280,7 @@ bool teclaPressionada(TECLA_ASYNC tecla)
   assert(xServer);
 
   // Gera vetor de estado do teclado.
-  uint8_t kbs[32];
+  char kbs[32];
   XQueryKeymap(xServer, kbs);
 
   // Transforma o valor $tecla em um código de tecla do X11 e checa
@@ -263,7 +288,7 @@ bool teclaPressionada(TECLA_ASYNC tecla)
   // significativos indexam um bit dentro de um byte (2^3 = 8),
   // e o resto indexa um byte do vetor $kbs.
   KeyCode kc = XKeysymToKeycode(xServer, tecla);
-  bool pressionada = kbs[kc >> 3] & (1 << (kc & 0b111));
+  bool pressionada = kbs[kc >> 3] & (1 << (kc & 0x7));
 
   return pressionada;
 }

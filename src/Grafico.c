@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-GRAFICO carregarGrafico(char *caminho)
+GRAFICO *carregarGrafico(GRAFICO *grafico, const char *caminho)
 {
   // Tenta abrir um arquivo de gráfico,
   // fecha o programa se falhar.
@@ -51,7 +51,7 @@ GRAFICO carregarGrafico(char *caminho)
       bytesLinhaAtual++;
       // Caracteres começam com "0" ou "11". Bytes que começam com
       // "10" são uma continuação do último caractere.
-      if ((byte >> 6) != 0b10)
+      if (!continuacao(byte))
       {
         colunasLinhaAtual++;
       }
@@ -115,11 +115,10 @@ GRAFICO carregarGrafico(char *caminho)
 
   // Fecha o arquivo, monta a estrutura do gráfico e retorna.
   fclose(arquivo);
-  GRAFICO grafico = {
-      .linhas = linhas,
-      .colunas = colunas,
-      .bytesPorLinha = bytesPorLinha,
-      .imagem = imagem};
+  grafico->linhas = linhas;
+  grafico->colunas = colunas;
+  grafico->bytesPorLinha = bytesPorLinha;
+  grafico->imagem = imagem;
   return grafico;
 }
 
@@ -142,59 +141,87 @@ void descarregarGrafico(GRAFICO *grafico)
   grafico->bytesPorLinha = 0;
 }
 
-void desenharGrafico(GRAFICO grafico, WINDOW *win, int y, int x)
+void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x)
+{
+  desenharGraficoComColisao(grafico, win, y, x, NULL, NULL);
+}
+
+bool desenharGraficoComColisao(
+    GRAFICO *grafico,
+    WINDOW *win,
+    int y,
+    int x,
+    bool src[],
+    bool dst[])
 {
   // Obtém as dimensões da janela.
-  int alturaWin = getmaxy(win);
-  int larguraWin = getmaxx(win);
+  const int ALTURA = getmaxy(win);
+  const int LARGURA = getmaxx(win);
 
   // Calcula as coordenadas para o gráfico centralizado.
   if (y == CENTRO)
   {
-    y = centralizarY(win, grafico.linhas);
+    y = centralizarY(win, grafico->linhas);
   }
   if (x == CENTRO)
   {
-    x = centralizarX(win, grafico.colunas);
+    x = centralizarX(win, grafico->colunas);
   }
+
+  // Guarda o estado das colisões.
+  bool houveColisao = false;
 
   // Itera sobre as linhas da imagem. Desenha cada caractere individualmente
   // e não desenha sobre as bordas da janela ou fora da janela.
-  for (int i = 0; i < grafico.linhas; i++)
+  for (int i = 0; i < grafico->linhas; i++)
   {
     int charY = y + i;
     // Se $charY fica dentro de $win, desenha essa linha.
-    if (0 < charY && charY < alturaWin)
+    if (0 < charY && charY < ALTURA)
     {
-      // Move o cursor para o início da linha.
-      wmove(win, charY, x);
-      for (int j = 0; j < grafico.bytesPorLinha; j++)
+      // Se o x inicial estiver fora da tela, avança pelos bytes
+      // até chegar ao início.
+      int j = 0;
+      int charX = x;
+      while (charX <= 0 && j < grafico->bytesPorLinha)
       {
-        // Determina a posição atual do cursor.
-        int charX = getcurx(win);
-
-        // Coleta o byte atual e checa se é um byte de continuação
-        // (em UTF-8, bytes do tipo 0b10xxxxxx são continuação de
-        // um code point anterior.)
-        char esseByte = grafico.imagem[i][j];
-        bool continuacao = (esseByte >> 6) == 0b10;
-
-        // Se o cursor estiver fora da tela para a esquerda e o byte
-        // atual não for a continuação de um caractere anterior, ou o
-        // byte atual for um caractere de espaço vazio, move o cursor
-        // para a direita manualmente, sem desenhar o byte.
-        if ((charX <= 0 && !continuacao) || isspace(esseByte))
+        char byte = grafico->imagem[i][j];
+        if (!continuacao(byte))
+        {
+          charX++;
+        }
+        j++;
+      }
+      // Move o cursor para o início da linha.
+      wmove(win, charY, charX);
+      // Enquanto x estiver dentro da tela, imprime os caracteres,
+      // pulando os espaços.
+      while (charX < LARGURA - 1 && j < grafico->bytesPorLinha)
+      {
+        char byte = grafico->imagem[i][j];
+        // Pula espaço.
+        if (isspace(byte))
         {
           wmove(win, charY, charX + 1);
         }
-
-        // Se o cursor estiver dentro da tela, desenha o byte (o que
-        // também avança o cursor.)
-        else if (charX < larguraWin)
+        // Imprime o char e checa colisões;
+        else
         {
-          waddch(win, esseByte);
+          waddch(win, byte);
+          if (dst)
+          {
+            dst[charY * N_COLUNAS + charX] = true;
+          }
+          if (src && src[charY * N_COLUNAS + charX])
+          {
+            houveColisao = true;
+          }
         }
+        // Atualiza a posição.
+        j++;
+        charX = getcurx(win);
       }
     }
   }
+  return houveColisao;
 }

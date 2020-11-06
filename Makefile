@@ -14,6 +14,32 @@ headers = $(wildcard $(include_dir)/*.h)
 
 # Configurações universais.
 common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L. -lm
+# common_flags += -std=c99 -Wpedantic
+# common_flags += -pedantic-errors
+# common_flags += -Werror
+# common_flags += -Wall
+# common_flags += -Wextra
+# common_flags += -Waggregate-return
+# common_flags += -Wbad-function-cast
+# common_flags += -Wcast-align
+# common_flags += -Wcast-qual
+# common_flags += -Wfloat-equal
+# common_flags += -Wformat=2
+# common_flags += -Wlogical-op
+# common_flags += -Wmissing-declarations
+# common_flags += -Wmissing-include-dirs
+# common_flags += -Wmissing-prototypes
+# common_flags += -Wnested-externs
+# common_flags += -Wpointer-arith
+# common_flags += -Wredundant-decls
+# common_flags += -Wsequence-point
+# common_flags += -Wshadow
+# common_flags += -Wstrict-prototypes
+# common_flags += -Wswitch
+# common_flags += -Wundef
+# common_flags += -Wunreachable-code
+# common_flags += -Wunused-but-set-parameter
+# common_flags += -Wwrite-strings
 
 # Configurações específicas do Linux 64 bits.
 linux64_compiler = c99

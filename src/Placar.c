@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-FILE *lerScores(char *caminho, TIPO_JOGADOR placar[], int *numScores)
+FILE *lerScores(const char *caminho, TIPO_JOGADOR placar[], int *numScores)
 {
   // Tenta abrir o arquivo especificado pelo caminho.
   FILE *arq = fopen(caminho, "r+");

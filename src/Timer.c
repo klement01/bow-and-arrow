@@ -22,11 +22,10 @@ LARGE_INTEGER t1;
 bool inicializado = false;
 LARGE_INTEGER frequencia;
 
-LARGE_INTEGER obterTempoAtual()
+LARGE_INTEGER *obterTempoAtual(LARGE_INTEGER *t)
 {
   // Fecha o programa se houver um erro obtendo o tempo atual.
-  LARGE_INTEGER t;
-  if (!QueryPerformanceCounter(&t))
+  if (!QueryPerformanceCounter(t))
   {
     perror("Erro obtendo valor do timer");
     exit(EXIT_FAILURE);
@@ -34,9 +33,10 @@ LARGE_INTEGER obterTempoAtual()
   return t;
 }
 
-void iniciarTimer()
+void iniciarTimer(void)
 {
-  t1 = obterTempoAtual();
+  obterTempoAtual(&t1);
+
   // Se o timer ainda não foi inicializado, tenta obter o valore
   // de frequência para conversão entre ticks e segundos.
   if (!inicializado)
@@ -50,12 +50,13 @@ void iniciarTimer()
   inicializado = true;
 }
 
-double timerAtual()
+double timerAtual(void)
 {
   assert(inicializado);
 
   // Checa o valor do timer em ticks.
-  LARGE_INTEGER t2 = obterTempoAtual();
+  LARGE_INTEGER t2;
+  obterTempoAtual(&t2);
 
   // Calcula a diferença e converte para segundos.
   double dt = ((double)(t2.QuadPart - t1.QuadPart)) / frequencia.QuadPart;
@@ -87,11 +88,10 @@ struct timespec t1;
 // é usado sem ser inicializado.
 bool inicializado = false;
 
-struct timespec obterTempoAtual()
+struct timespec *obterTempoAtual(struct timespec *t)
 {
   // Fecha o programa se houver um erro obtendo o tempo atual.
-  struct timespec t;
-  if (clock_gettime(CLOCK_MONOTONIC_RAW, &t) == -1)
+  if (clock_gettime(CLOCK_MONOTONIC_RAW, t) == -1)
   {
     perror("Erro obtendo valor do timer");
     exit(EXIT_FAILURE);
@@ -99,18 +99,19 @@ struct timespec obterTempoAtual()
   return t;
 }
 
-void iniciarTimer()
+void iniciarTimer(void)
 {
-  t1 = obterTempoAtual();
+  obterTempoAtual(&t1);
   inicializado = true;
 }
 
-double timerAtual()
+double timerAtual(void)
 {
   assert(inicializado);
 
   // Tenta obter o tempo atual.
-  struct timespec t2 = obterTempoAtual();
+  struct timespec t2;
+  obterTempoAtual(&t2);
 
   // Intervalos de tempo são separados em duas partes, segundos e
   // nanossegundos, cujas diferenças são calculadas separadamente.
