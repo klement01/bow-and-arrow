@@ -39,20 +39,9 @@ FILE *lerScores(char *caminho, TIPO_JOGADOR placar[], int *numScores)
   return arq;
 }
 
-bool novoHighscore(int novoScore, TIPO_JOGADOR placar[])
+bool checarScore(int novoScore, TIPO_JOGADOR placar[])
 {
-  // Itera sobre os elemento do $placar até achar algum com score menor
-  // que $novoScore.
-  int indice = 0;
-  bool incluido = false;
-  while (indice < MAX_SCORES && !incluido)
-  {
-    if (placar[indice].score < novoScore)
-    {
-      incluido = true;
-    }
-  }
-  return incluido;
+  return novoScore > placar[MAX_SCORES - 1].score;
 }
 
 int inserirScore(TIPO_JOGADOR novoScore, TIPO_JOGADOR placar[], int *numScores)

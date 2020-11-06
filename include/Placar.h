@@ -45,7 +45,7 @@ FILE *lerScores(char *caminho, TIPO_JOGADOR placar[], int *numScores);
   Retorna true se $novoScore se qualifica para entrar em $placar.
   Assume que $plcara está em ordem decrescente.
 */
-bool novoHighscore(int novoScore, TIPO_JOGADOR placar[]);
+bool checarScore(int novoScore, TIPO_JOGADOR placar[]);
 
 /*
   Tenta inserir o $novoScore em $placar e retorna o índice onde ele foi
