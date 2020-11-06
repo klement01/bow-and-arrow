@@ -2,10 +2,14 @@
 #include <Jogo.h>
 #include <Placar.h>
 #include <TerminalIO.h>
+#include <Timer.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+// FPS que o jogo tentará manter, limitando a taxa de execução.
+#define MAX_FPS 100
 
 // Tamanho das subjanelas do menu principal.
 #define N_LINHAS_TITULO 15
@@ -21,9 +25,10 @@ typedef enum estado
   GAMEOVER,
 } ESTADO;
 
-ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado);
-ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado);
-ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado);
+ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt);
+ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt);
+ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt);
+ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt);
 void carregarMateriais();
 void descarregarMateriais();
 
@@ -52,6 +57,9 @@ int main()
   // Garante que o tamanho do terminal esteja correto.
   corrigirTamanhoDoTerminal();
 
+  // Inicializa o timer.
+  iniciarTimer();
+
   /*
     Loop: executa continuamente o código principal do jogo,
     realizando alterações a cada tick de processamento.
@@ -59,6 +67,11 @@ int main()
 
   while (estado != FIM)
   {
+    // Calcula o tempo transcorrido durante o último quadro e começa
+    // a contagem do quadro atual.
+    double dt = timerAtual();
+    iniciarTimer();
+
     // Coleta uma cópia do buffer de entrada no início do quadro
     // e o estado de diversos eventos de controle.
     ENTRADA entrada = processarEntrada();
@@ -77,13 +90,16 @@ int main()
     switch (estado)
     {
     case MENU:
-      estado = atualizarMenu(&entrada, trocaDeEstado);
+      estado = atualizarMenu(&entrada, trocaDeEstado, dt);
       break;
     case PLACAR:
-      estado = atualizarPlacar(&entrada, trocaDeEstado);
+      estado = atualizarPlacar(&entrada, trocaDeEstado, dt);
       break;
     case JOGO:
-      estado = atualizarJogo(&entrada, trocaDeEstado);
+      estado = atualizarJogo(&entrada, trocaDeEstado, dt);
+      break;
+    case GAMEOVER:
+      estado = atualizarGameover(&entrada, trocaDeEstado, dt);
       break;
     }
 
@@ -92,6 +108,14 @@ int main()
 
     // Atualiza a tela.
     doupdate();
+
+    // Determina o tempo transcorrido durante o quadro atual e pausa
+    // o programa para limitar o FPS, se necessário.
+    dt = (1.0 / MAX_FPS) - timerAtual();
+    if (dt > 0)
+    {
+      pause(dt);
+    }
   }
 
   // Fim do programa.
@@ -116,7 +140,7 @@ struct
   WINDOW *wOpcoes;
 } menu;
 
-ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado)
+ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = MENU;
@@ -221,12 +245,15 @@ ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado)
   wattr_on(menu.wOpcoes, jogoAttr, NULL);
   mvwaddstr(menu.wOpcoes, jogoY, origemX, "NOVO JOGO");
   wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
+
   wattr_on(menu.wOpcoes, placarAttr, NULL);
   mvwaddstr(menu.wOpcoes, placarY, origemX, "MAIORES PLACARES");
   wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
+
   wattr_on(menu.wOpcoes, sairAttr, NULL);
   mvwaddstr(menu.wOpcoes, sairY, origemX, "SAIR");
   wattr_off(menu.wOpcoes, selecionadoAttr, NULL);
+
   wborder(menu.wOpcoes, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE, 0, 0);
 
   wattr_on(menu.wOpcoes, selecionadoAttr, NULL);
@@ -259,7 +286,7 @@ struct
   int numScores;
 } placar;
 
-ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado)
+ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = PLACAR;
@@ -324,7 +351,7 @@ struct
   int ultimoScore;
 } jogo;
 
-ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado)
+ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = JOGO;
@@ -333,6 +360,7 @@ ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado)
   int retorno = atualizarQuadroDoJogo(
       entrada,
       trocaDeEstado,
+      dt,
       placar.scores[0].score);
 
   // Se o retorno não for $JOGO_CONTINUA, o jogo acabou, e o retorno
@@ -342,6 +370,25 @@ ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado)
     estado = GAMEOVER;
     jogo.ultimoScore = retorno;
   }
+
+  return estado;
+}
+
+/***
+ *       _____                                                          
+ *      / ____|                                                         
+ *     | |  __    __ _   _ __ ___     ___    ___   __   __   ___   _ __ 
+ *     | | |_ |  / _` | | '_ ` _ \   / _ \  / _ \  \ \ / /  / _ \ | '__|
+ *     | |__| | | (_| | | | | | | | |  __/ | (_) |  \ V /  |  __/ | |   
+ *      \_____|  \__,_| |_| |_| |_|  \___|  \___/    \_/    \___| |_|   
+ *                                                                      
+ *                                                                      
+ */
+
+ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt)
+{
+  // O estado para o qual o jogo mudará quando a função retornar.
+  ESTADO estado = GAMEOVER;
 
   return estado;
 }

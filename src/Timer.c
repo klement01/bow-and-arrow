@@ -1,6 +1,7 @@
 #include <Timer.h>
 
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,7 @@ LARGE_INTEGER obterTempoAtual()
   return t;
 }
 
-void reiniciarTimer()
+void iniciarTimer()
 {
   t1 = obterTempoAtual();
   // Se o timer ainda não foi inicializado, tenta obter o valore
@@ -49,7 +50,7 @@ void reiniciarTimer()
   inicializado = true;
 }
 
-float calcularDeltaTempo()
+double timerAtual()
 {
   assert(inicializado);
 
@@ -57,12 +58,15 @@ float calcularDeltaTempo()
   LARGE_INTEGER t2 = obterTempoAtual();
 
   // Calcula a diferença e converte para segundos.
-  float dt = ((double)(t2.QuadPart - t1.QuadPart)) / frequencia.QuadPart;
-
-  // Salva o tempo da invocação atual para a próxima invocação.
-  t1 = t2;
+  double dt = ((double)(t2.QuadPart - t1.QuadPart)) / frequencia.QuadPart;
 
   return dt;
+}
+
+void pause(double segundos)
+{
+  DWORD t = round(segundos * 1e3);
+  Sleep(t);
 }
 
 #elif _POSIX_C_SOURCE >= 199309L
@@ -95,13 +99,13 @@ struct timespec obterTempoAtual()
   return t;
 }
 
-void reiniciarTimer()
+void iniciarTimer()
 {
   t1 = obterTempoAtual();
   inicializado = true;
 }
 
-float calcularDeltaTempo()
+double timerAtual()
 {
   assert(inicializado);
 
@@ -110,14 +114,20 @@ float calcularDeltaTempo()
 
   // Intervalos de tempo são separados em duas partes, segundos e
   // nanossegundos, cujas diferenças são calculadas separadamente.
-  float dt_sec = t2.tv_sec - t1.tv_sec;
-  float dt_nsec = t2.tv_nsec - t1.tv_nsec;
-  float dt = dt_sec + dt_nsec / 1e9;
-
-  // Salva o tempo da invocação atual para a próxima invocação.
-  t1 = t2;
+  double dt_sec = t2.tv_sec - t1.tv_sec;
+  double dt_nsec = t2.tv_nsec - t1.tv_nsec;
+  double dt = dt_sec + dt_nsec / 1e9;
 
   return dt;
+}
+
+void pause(double segundos)
+{
+  long ns_total = round(segundos * 1e9);
+  time_t s = ns_total / (long)(1e9);
+  long ns = ns_total % (long)(1e9);
+  struct timespec t = {s, ns};
+  nanosleep(&t, NULL);
 }
 
 #else

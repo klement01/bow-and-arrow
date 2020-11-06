@@ -60,7 +60,7 @@ void fecharTerminal()
 
 WINDOW *criarJanela(int altura, int largura, int posy, int posx)
 {
-  WINDOW *win = newwin(altura, largura, posy, posx);
+  WINDOW *win = subwin(stdscr, altura, largura, posy, posx);
   if (!win)
   {
     perror("Erro criando janela");

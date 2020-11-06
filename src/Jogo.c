@@ -76,24 +76,18 @@ typedef struct objeto
  *                                                       
  */
 
-/*
-  Protótipos de objetos do jogo, criados durante o carregamento
-  de materiais do jogo.
-*/
+// Protótipos de objetos do jogo, criados durante o carregamento
+// de materiais do jogo.
 OBJETO objJogador;
 OBJETO objFlecha;
 OBJETO objBalao;
 OBJETO objMonstro;
 
-/*
-  Janelas do jogo.
-*/
+// Janelas do jogo.
 WINDOW *wCabecalho;
 WINDOW *wJogo;
 
-/*
-  Vetor de objetos ativos.
-*/
+// Vetor de objetos, ativos e inativos.
 OBJETO objetos[MAX_OBJETOS_ATIVOS];
 
 /***
@@ -107,11 +101,11 @@ OBJETO objetos[MAX_OBJETOS_ATIVOS];
  *                                              |_|              
  */
 
-void atualizarObjeto(OBJETO *objeto, float dt);
+void atualizarObjeto(OBJETO *objeto, double dt);
 void desenharObjeto(OBJETO *objeto, WINDOW *win);
 OBJETO *inserirObjeto(OBJETO *objeto);
 
-int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, int highscore)
+int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int highscore)
 {
   // O jogo continua até algo forçar um gameover (o jogador morre,
   // fica sem flechas, o último nível é completo, etc.)
@@ -123,7 +117,6 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, int highscore)
   {
     destruirJanela(&wCabecalho);
     destruirJanela(&wJogo);
-    reiniciarTimer();
   }
   if (!wCabecalho)
   {
@@ -133,9 +126,6 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, int highscore)
   {
     wJogo = criarJanela(N_LINHAS_JOGO, N_COLUNAS, N_LINHAS_CABECALHO - 1, 0);
   }
-
-  // Calcula quando tempo passou desde o último quadro.
-  float dt = calcularDeltaTempo();
 
   // Variáveis persistentes.
   static int score;
@@ -229,7 +219,7 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, int highscore)
     fimDeJogo = true;
   }
 
-  // Se o jogador estiver morto, o jogo acabar.
+  // Se o jogador estiver morto, o jogo acaba.
   if (jogador->estado != VIVO)
   {
     fimDeJogo = true;
@@ -254,7 +244,7 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, int highscore)
   Atualiza a posição de um objeto do jogo de acordo com o tempo passado
   desde a última vez que foi atualizado.
 */
-void atualizarObjeto(OBJETO *objeto, float dt)
+void atualizarObjeto(OBJETO *objeto, double dt)
 {
 }
 

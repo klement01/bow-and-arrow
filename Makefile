@@ -13,7 +13,7 @@ sources = $(wildcard $(source_dir)/*.c)
 headers = $(wildcard $(include_dir)/*.h)
 
 # Configurações universais.
-common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L.
+common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L. -lm
 
 # Configurações específicas do Linux 64 bits.
 linux64_compiler = c99

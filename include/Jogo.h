@@ -18,7 +18,7 @@
   Atualiza um quadro do jogo. Retorna jogo continua se o jogo deve
   continuar, retorna o score (>= 0) em caso de game over.
 */
-int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, int highscore);
+int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int highscore);
 
 /*
   Carrega os materiais que serão usado pelo jogo em si. Deve ser chamada

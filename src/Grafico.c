@@ -127,12 +127,15 @@ void descarregarGrafico(GRAFICO *grafico)
 {
   // Libera o espaço alocado para o gráfico e descarta seus valores
   // (ponteiros para a imagem, metadados.)
-  for (int i = 0; i < grafico->linhas; i++)
+  if (grafico->imagem)
   {
-    free(grafico->imagem[i]);
-    grafico->imagem[i] = NULL;
+    for (int i = 0; i < grafico->linhas; i++)
+    {
+      free(grafico->imagem[i]);
+      grafico->imagem[i] = NULL;
+    }
+    free(grafico->imagem);
   }
-  free(grafico->imagem);
   grafico->imagem = NULL;
   grafico->linhas = 0;
   grafico->colunas = 0;

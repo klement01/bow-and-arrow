@@ -8,12 +8,16 @@
 /*
   Reinicia / inicializa o timer.
 */
-void reiniciarTimer();
+void iniciarTimer();
 
 /*
-  Retorna o tempo desde a última invocação ou reset como uma fração de
-  segundo. Retorna um valor indefinido se chamado sem ser resetado.
+  Retorna o tempo em segundos desde a última inicialização do timer.
 */
-float calcularDeltaTempo();
+double timerAtual();
+
+/*
+  Pausa a execução do programa por alguns segundos.
+*/
+void pause(double segundos);
 
 #endif
