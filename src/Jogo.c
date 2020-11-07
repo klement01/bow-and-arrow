@@ -19,13 +19,13 @@
 
 // Distância a qual um objeto pode estar fora da área do jogo sem
 // desaparecer / reaparecer do outro lado, em linhas / colunas.
-#define PADDING 5
+#define PADDING 2
 
 // Tempo mínimo entre flechas (em segundos.)
-#define T_FLECHAS 1.0
+#define T_FLECHAS 0.8
 
 // Tempo de contagem da munição após fim do nível (em segundos.)
-#define T_MUNICAO 0.4
+#define T_MUNICAO 0.2
 
 // Tempo entre aparição de monstros (em segundos.)
 #define T_MONSTROS 2.0
@@ -46,10 +46,10 @@
 */
 typedef enum id_objeto
 {
-  JOGADOR,
   FLECHA,
+  MONSTRO,
   BALAO,
-  MONSTRO
+  JOGADOR
 } ID_OBJETO;
 
 /*
@@ -117,8 +117,8 @@ typedef enum subestados
  *                                                       
  */
 
-// Objeto do jogardor.
-OBJETO *jogador;
+// Objeto do jogador.
+/* OBJETO *jogador; */
 
 // Protótipos de objetos do jogo, criados durante o carregamento
 // de materiais do jogo.
@@ -139,6 +139,7 @@ int score;
 int nivel;
 NIVEL tipoDoNivel;
 int municao;
+double yFlecha;
 int numInimigos;
 
 // Posição dos objetos com os quais pode haver colisão.
@@ -164,6 +165,7 @@ void atualizarObjetos(double dt);
 void desenharQuadroDoJogo(void);
 
 OBJETO *inserirObjeto(OBJETO *objeto);
+void ordenarObjetos(void);
 void limparVetorPosicao(bool vetor[]);
 bool limitarValor(double *valor, double vmin, double vmax, bool wrap);
 bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad);
@@ -199,7 +201,7 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
     }
 
     // Cria um objeto para o jogador.
-    jogador = inserirObjeto(&objJogador);
+    OBJETO *jogador = inserirObjeto(&objJogador);
     jogador->y = centralizarY(wJogo, jogador->grafico.linhas);
 
     // Configura variáveis iniciais.
@@ -213,6 +215,11 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
   // Checa se houve troca de subestado desde o último quadro.
   bool trocaDeSubestado = subestado != ultimoSubestado;
   ultimoSubestado = subestado;
+
+  // Reinicia os arranjos de posição dos objetos e os reordena.
+  limparVetorPosicao(posFlecha);
+  limparVetorPosicao(posMonstros);
+  ordenarObjetos();
 
   // Atualiza o subestado apropriado.
   switch (subestado)
@@ -312,22 +319,6 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     numInimigosPotenciais = numInimigos;
   }
 
-  // Se o usuário tiver pressionado espaço e o intervalo entre flechas
-  // já tiver passado, cria uma nova flecha junto ao jogador.
-  timerFlecha -= dt;
-  if (timerFlecha < 0)
-  {
-    timerFlecha = 0;
-  }
-  if (teclaPressionada(ESPACO) && timerFlecha == 0)
-  {
-    OBJETO *novaFlecha = inserirObjeto(&objFlecha);
-    novaFlecha->y = jogador->y + 1;
-    flechasAtivas++;
-    municao--;
-    timerFlecha += T_FLECHAS;
-  }
-
   // Cria um novo monstro em uma posição aleatória do eixo Y, de
   // acordo com o timer.
   if (tipoDoNivel == MONSTROS && numInimigosPotenciais > 0)
@@ -346,7 +337,24 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   atualizarObjetos(dt);
   desenharQuadroDoJogo();
 
+  // Se o usuário tiver pressionado espaço e o intervalo entre flechas
+  // já tiver passado, cria uma nova flecha junto ao jogador.
+  timerFlecha -= dt;
+  if (timerFlecha < 0)
+  {
+    timerFlecha = 0;
+  }
+  if (teclaPressionada(ESPACO) && timerFlecha == 0)
+  {
+    OBJETO *novaFlecha = inserirObjeto(&objFlecha);
+    novaFlecha->y = yFlecha;
+    flechasAtivas++;
+    municao--;
+    timerFlecha += T_FLECHAS;
+  }
+
   // Desativa os objetos mortos.
+  bool jogadorMorto = false;
   for (int i = 0; i < MAX_OBJETOS_ATIVOS; i++)
   {
     OBJETO *obj = &objetos[i];
@@ -354,6 +362,9 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     {
       switch (obj->id)
       {
+      case JOGADOR:
+        jogadorMorto = true;
+        break;
       case BALAO:
         score += BALAO_MORTO;
         numInimigos--;
@@ -384,9 +395,9 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   {
     subestado = SUB_FIM;
   }
-
-  // Se o jogador estiver morto, o jogo acaba.
-  if (jogador->estado != VIVO)
+  
+  // Se o jogador tiver morrido, acaba o jogo.
+  if (jogadorMorto)
   {
     subestado = SUB_FIM;
   }
@@ -456,6 +467,12 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     }
   }
 
+  // Termina o jogo após o nível 10.
+  if (nivel > 10)
+  {
+    subestado = SUB_FIM;
+  }
+
   // Atualiza e desenha os objetos do jogo.
   atualizarObjetos(dt);
   desenharQuadroDoJogo();
@@ -493,6 +510,7 @@ void atualizarObjetos(double dt)
           obj->y += dy;
         }
         limitarPosicaoDeObjeto(obj, false, false);
+        yFlecha = obj->y + 1;
       }
       // Outros objetos se movem de acordo com sua velocidade.
       else
@@ -541,16 +559,13 @@ void desenharQuadroDoJogo(void)
       int y = floor(obj->y);
       int x = floor(obj->x);
 
-      // TODO: corrigir bug quando mais de uma flecha é atirada.
       bool vivo = true;
       switch (obj->id)
       {
       case JOGADOR:
         vivo = !desenharGraficoComColisao(g, wJogo, y, x, posMonstros, NULL);
-        limparVetorPosicao(posMonstros);
         break;
       case FLECHA:
-        limparVetorPosicao(posFlecha);
         desenharGraficoComColisao(g, wJogo, y, x, NULL, posFlecha);
         break;
       case BALAO:
@@ -577,8 +592,8 @@ void desenharQuadroDoJogo(void)
 }
 
 /*
-  Desenha os objetos do jogo na janela e realiza checagem de
-  colisões. Retorna true se o objeto continua vivo.
+  Insere um cópia de objeto no arranjo de objetos e retorna um ponteiro
+  para ele.
 */
 OBJETO *inserirObjeto(OBJETO *objeto)
 {
@@ -611,6 +626,51 @@ OBJETO *inserirObjeto(OBJETO *objeto)
     objeto = NULL;
   }
   return objeto;
+}
+
+/*
+  Ordena os objetos de acordo com a enumeração (enum menor -> posição
+  menor no arranjo.) Usado para garantir que checagem de colisões é
+  feita na ordem correta.
+*/
+void ordenarObjetos(void)
+{
+  // Encontra o primeiro objeto ativo.
+  int i = 0;
+  while (objetos[i].estado == INATIVO)
+  {
+    i++;
+  }
+
+  // Itera sobre a lista a partir desse objeto, a ordenando no processo.
+  for (; i < MAX_OBJETOS_ATIVOS - 1; i++)
+  {
+    // Testa se o objeto atual está ativo.
+    OBJETO *orig = &objetos[i];
+    if (orig->estado != INATIVO)
+    {
+      // Procura o objeto com menor ID (ou seja, maior prioridade) que
+      // vem após o atual.
+      OBJETO *menor = orig;
+      for (int j = i + 1; j < MAX_OBJETOS_ATIVOS; j++)
+      {
+        OBJETO *novo = &objetos[j];
+        if (menor->estado != INATIVO && novo->id < menor->id)
+        {
+          menor = novo;
+        }
+      }
+      // Se for encontrado, move os itens do atual até o encontrado um
+      // índice para frente e coloca o encontrado no espaço liberado.
+      // (insertion sort.)
+      if (menor != orig)
+      {
+        OBJETO tmp = *menor;
+        memmove(orig + 1, orig, sizeof(OBJETO) * (menor - orig));
+        *orig = tmp;
+      }
+    }
+  }
 }
 
 /*

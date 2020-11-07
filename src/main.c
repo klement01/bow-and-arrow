@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 // FPS que o jogo tentará manter, limitando a taxa de execução.
-#define MAX_FPS 100
+#define MAX_FPS 120
 
 // Tamanho das subjanelas do menu principal.
 #define N_LINHAS_TITULO 15
