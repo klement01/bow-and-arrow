@@ -9,9 +9,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+// TODO: adicionar diferenças entre níveis.
+
 // Número máximo de objetos que podem existir no jogo em um determinado
 // momento.
-#define MAX_OBJETOS_ATIVOS 30
+#define MAX_FLECHAS_ATIVAS 5
+#define MAX_INIMIGOS_ATIVOS 30
+#define MAX_JOGADOR 1
+#define MAX_OBJETOS_ATIVOS (MAX_FLECHAS_ATIVAS + MAX_INIMIGOS_ATIVOS + MAX_JOGADOR)
 
 // Tamanho das subjanelas.
 #define N_LINHAS_CABECALHO 4
@@ -29,6 +34,12 @@
 
 // Tempo entre aparição de monstros (em segundos.)
 #define T_MONSTROS 2.0
+
+// Tempo que o jogo fica pausado após o jogador morrer (em segundos.)
+#define T_GAMEOVER 1.5
+
+// Nível máximo que o jogo pode atingir.
+#define NIVEL_MAX 10
 
 /***
  *      _______  _                    
@@ -57,10 +68,10 @@ typedef enum id_objeto
 */
 typedef enum estado_obj
 {
-  INATIVO,
-  VIVO,
-  MORTO,
-  OOB // Out of bounds.
+  OBJ_INATIVO,
+  OBJ_VIO,
+  OBJ_MORTO,
+  OBJ_OOB // Out of bounds.
 } ESTADO_OBJ;
 
 /*
@@ -81,8 +92,8 @@ typedef struct objeto
 */
 typedef enum nivel
 {
-  BALOES,
-  MONSTROS
+  NIVEL_BALOES,
+  NIVEL_MONSTROS
 } NIVEL;
 
 /*
@@ -100,7 +111,8 @@ enum pontos
 */
 typedef enum subestados
 {
-  SUB_FIM,
+  GAME_OVER,
+  QUADRO_CONGELADO,
   EM_JOGO,
   PAUSADO,
   TROCANDO_NIVEL,
@@ -131,16 +143,19 @@ OBJETO objMonstro;
 WINDOW *wCabecalho;
 WINDOW *wJogo;
 
-// Vetor de objetos, ativos e inativos.
-OBJETO objetos[MAX_OBJETOS_ATIVOS];
+// Vetor de objetos, ativos e inativos. Ele é separado em vários
+// subvetores para facilitar detecção de colisão.
+OBJETO vetObjetos[MAX_OBJETOS_ATIVOS];
+OBJETO *vetFlechas = vetObjetos;
+OBJETO *vetInimigos = vetObjetos + MAX_FLECHAS_ATIVAS;
+OBJETO *jogador = vetObjetos + MAX_FLECHAS_ATIVAS + MAX_INIMIGOS_ATIVOS;
 
 // Variáveis globais do jogo.
 int score;
 int nivel;
 NIVEL tipoDoNivel;
 int municao;
-double yFlecha;
-int numInimigos;
+int numInimigosRestantes;
 
 // Posição dos objetos com os quais pode haver colisão.
 bool posFlecha[N_LINHAS_JOGO * N_COLUNAS];
@@ -161,11 +176,13 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt);
 SUBESTADO pausado(ENTRADA *entrada, bool trocaDeSubestado, double dt);
 SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt);
 
-void atualizarObjetos(double dt);
-void desenharQuadroDoJogo(void);
+void criarInimigos(bool trocaDeSubestado, double dt);
+
+void atualizarTodosOsObjetos(double dt);
+void desenharTodosOsObjetos(void);
 
 OBJETO *inserirObjeto(OBJETO *objeto);
-void ordenarObjetos(void);
+OBJETO *inserirObjetoEmSubvetor(OBJETO *objeto, OBJETO *vetor, int num);
 void limparVetorPosicao(bool vetor[]);
 bool limitarValor(double *valor, double vmin, double vmax, bool wrap);
 bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad);
@@ -174,6 +191,7 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
 {
   // Variáveis persistentes.
   static SUBESTADO subestado, ultimoSubestado;
+  static double timerGameover;
 
   // Regenera as janelas após redimensionamento / troca de estado.
   if (entrada->terminalRedimensionado || trocaDeEstado)
@@ -197,29 +215,27 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
     // Desativa todos os objetos.
     for (int i = 0; i < MAX_OBJETOS_ATIVOS; i++)
     {
-      objetos[i].estado = INATIVO;
+      vetObjetos[i].estado = OBJ_INATIVO;
     }
 
     // Cria um objeto para o jogador.
-    OBJETO *jogador = inserirObjeto(&objJogador);
+    jogador = inserirObjeto(&objJogador);
     jogador->y = centralizarY(wJogo, jogador->grafico.linhas);
 
     // Configura variáveis iniciais.
     subestado = TROCANDO_NIVEL;
-    ultimoSubestado = SUB_FIM;
+    ultimoSubestado = QUADRO_CONGELADO;
     score = 0;
     nivel = 0;
     municao = 0;
+    timerGameover = T_GAMEOVER;
   }
 
   // Checa se houve troca de subestado desde o último quadro.
+  // Não considera troca de subestado quando o jogo estava pausado.
   bool trocaDeSubestado = subestado != ultimoSubestado;
+  trocaDeSubestado = trocaDeSubestado && ultimoSubestado != PAUSADO;
   ultimoSubestado = subestado;
-
-  // Reinicia os arranjos de posição dos objetos e os reordena.
-  limparVetorPosicao(posFlecha);
-  limparVetorPosicao(posMonstros);
-  ordenarObjetos();
 
   // Atualiza o subestado apropriado.
   switch (subestado)
@@ -232,6 +248,15 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
     break;
   case TROCANDO_NIVEL:
     subestado = trocandoNivel(entrada, trocaDeSubestado, dt);
+    break;
+  case QUADRO_CONGELADO:
+    timerGameover -= dt;
+    if (timerGameover < 0)
+    {
+      subestado = GAME_OVER;
+    }
+    // TODO: piscar fundo para indicar gameover.
+    desenharTodosOsObjetos();
     break;
   }
 
@@ -270,9 +295,10 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
   wnoutrefresh(wJogo);
   wnoutrefresh(wCabecalho);
 
-  // Retorna o score ou $JOGO_CONTINUA.
+  // Retorna o score após o período de espera de game over ou
+  // $JOGO_CONTINUA.
   int retorno;
-  if (subestado == SUB_FIM)
+  if (subestado == GAME_OVER)
   {
     retorno = score;
   }
@@ -295,6 +321,48 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
  */
 
 /*
+  Cria inimigos de acordo com o nível atual.
+*/
+void criarInimigos(bool trocaDeSubestado, double dt)
+{
+  static int numInimigosParaCriar;
+  static double timerMonstros;
+  if (trocaDeSubestado)
+  {
+    numInimigosParaCriar = numInimigosRestantes;
+    timerMonstros = T_MONSTROS;
+  }
+
+  const int ALTURA = getmaxy(wJogo);
+  const int LARGURA = getmaxx(wJogo);
+
+  // Cria os balões alinhados na parte inferior da tela.
+  if (tipoDoNivel == NIVEL_BALOES && numInimigosParaCriar > 0)
+  {
+    for (int i = 0; i < numInimigosRestantes; i++)
+    {
+      OBJETO *obj = inserirObjeto(&objBalao);
+      obj->x = LARGURA - 5 - (i + 1) * (obj->grafico.colunas + 1);
+      numInimigosParaCriar--;
+    }
+  }
+
+  // Cria um novo monstro em uma posição aleatória do eixo Y, de
+  // acordo com o timer.
+  if (tipoDoNivel == NIVEL_MONSTROS && numInimigosParaCriar > 0)
+  {
+    timerMonstros -= dt;
+    if (timerMonstros < 0)
+    {
+      OBJETO *obj = inserirObjeto(&objMonstro);
+      obj->y = 1 + rand() % (ALTURA - obj->grafico.linhas - 1);
+      timerMonstros += T_MONSTROS;
+      numInimigosParaCriar--;
+    }
+  }
+}
+
+/*
   Atualiza o jogo enquanto estiver rodando.
 */
 SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
@@ -305,8 +373,6 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   // Variáveis persistentes.
   static int flechasAtivas;
   static double timerFlecha;
-  static double timerMonstro;
-  static int numInimigosPotenciais;
 
   // Configura os elementos iniciais do jogo após troca de estado
   // (novo jogo.)
@@ -314,28 +380,19 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   {
     // Reseta variáveis persistentes para seus valores iniciais.
     flechasAtivas = 0;
-    timerFlecha = 0;
-    timerMonstro = 0;
-    numInimigosPotenciais = numInimigos;
+    timerFlecha = T_FLECHAS;
   }
 
-  // Cria um novo monstro em uma posição aleatória do eixo Y, de
-  // acordo com o timer.
-  if (tipoDoNivel == MONSTROS && numInimigosPotenciais > 0)
-  {
-    timerMonstro -= dt;
-    if (timerMonstro < 0)
-    {
-      OBJETO *obj = inserirObjeto(&objMonstro);
-      obj->y = 1 + rand() % (getmaxy(wJogo) - obj->grafico.linhas - 1);
-      numInimigosPotenciais--;
-      timerMonstro += T_MONSTROS;
-    }
-  }
+  // Invoca novos inimigos quando necessário.
+  criarInimigos(trocaDeSubestado, dt);
+
+  // Reinicia os arranjos de posição dos objetos.
+  limparVetorPosicao(posFlecha);
+  limparVetorPosicao(posMonstros);
 
   // Atualiza e desenha os objetos do jogo.
-  atualizarObjetos(dt);
-  desenharQuadroDoJogo();
+  atualizarTodosOsObjetos(dt);
+  desenharTodosOsObjetos();
 
   // Se o usuário tiver pressionado espaço e o intervalo entre flechas
   // já tiver passado, cria uma nova flecha junto ao jogador.
@@ -344,21 +401,22 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   {
     timerFlecha = 0;
   }
-  if (teclaPressionada(ESPACO) && timerFlecha == 0)
+  if (teclaPressionada(ESPACO) && timerFlecha == 0 && municao > 0)
   {
     OBJETO *novaFlecha = inserirObjeto(&objFlecha);
-    novaFlecha->y = yFlecha;
+    novaFlecha->y = jogador->y + 1;
     flechasAtivas++;
     municao--;
     timerFlecha += T_FLECHAS;
   }
 
-  // Desativa os objetos mortos.
+  // Desativa os objetos mortos (com exceção do jogador, que fica
+  // sempre ativo.)
   bool jogadorMorto = false;
   for (int i = 0; i < MAX_OBJETOS_ATIVOS; i++)
   {
-    OBJETO *obj = &objetos[i];
-    if (obj->estado != VIVO && obj->estado != INATIVO)
+    OBJETO *obj = &vetObjetos[i];
+    if (obj->estado != OBJ_VIO && obj->estado != OBJ_INATIVO)
     {
       switch (obj->id)
       {
@@ -367,39 +425,54 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
         break;
       case BALAO:
         score += BALAO_MORTO;
-        numInimigos--;
+        numInimigosRestantes--;
         break;
       case MONSTRO:
-        if (obj->estado == MORTO)
+        if (obj->estado == OBJ_MORTO)
         {
           score += MONSTRO_MORTO;
         }
-        numInimigos--;
+        numInimigosRestantes--;
         break;
       case FLECHA:
         flechasAtivas--;
         break;
       }
-      obj->estado = INATIVO;
+      if (obj->id != JOGADOR)
+      {
+        obj->estado = OBJ_INATIVO;
+      }
     }
   }
 
+  /*
+    Troca de subestado. Quando mais de um evento ocorre que pode levar a
+    uma troca de subestado, segue a precedência;
+    FIM DE JOGO > TROCA DE NÍVEL > PAUSE.
+  */
+
+  // Pausa o jogo se o usuário tiver pressionado algum botão de pause.
+  if (entrada->pause)
+  {
+    subestado = PAUSADO;
+  }
+
   // Se não houverem mais inimigos, avança de nível.
-  if (numInimigos <= 0)
+  if (numInimigosRestantes <= 0)
   {
     subestado = TROCANDO_NIVEL;
   }
-  // Se ainda houverem inimigos e o jogador estiver sem flechas,
-  // o jogo acaba.
-  else if (flechasAtivas <= 0 && municao <= 0) // && numInimigos != 0
+  // Se ainda houverem inimigos e o jogador estiver sem flechas em um
+  // nível de balões, o jogo acaba.
+  else if (flechasAtivas <= 0 && municao <= 0 && tipoDoNivel == NIVEL_BALOES)
   {
-    subestado = SUB_FIM;
+    subestado = QUADRO_CONGELADO;
   }
-  
+
   // Se o jogador tiver morrido, acaba o jogo.
   if (jogadorMorto)
   {
-    subestado = SUB_FIM;
+    subestado = QUADRO_CONGELADO;
   }
 
   return subestado;
@@ -409,6 +482,111 @@ SUBESTADO pausado(ENTRADA *entrada, bool trocaDeSubestado, double dt)
 {
   // Subestado para o qual o jogo vai mudar quando a função retornar.
   SUBESTADO subestado = PAUSADO;
+
+  // Variáveis persistentes.
+  const int ALTURA = 8, LARGURA = 24;
+  static WINDOW *wPause;
+  static SUBESTADO selecao;
+
+  // Calcula a origem da janela.
+  int origemY = centralizarY(stdscr, ALTURA);
+  int origemX = centralizarX(stdscr, LARGURA);
+
+  // Regenera a janela após uma troca de subestado ou redimensionamento
+  // to terminal.
+  if (entrada->terminalRedimensionado || trocaDeSubestado)
+  {
+    destruirJanela(&wPause);
+  }
+  if (!wPause)
+  {
+    wPause = criarJanela(ALTURA, LARGURA, origemY, origemX);
+  }
+
+  // Reinicia as variáveis após o jogador pausar.
+  if (trocaDeSubestado)
+  {
+    selecao = EM_JOGO;
+  }
+
+  // Muda a seleção conforme a entrada do jogador.
+  if (entrada->baixo && selecao == EM_JOGO)
+  {
+    selecao = GAME_OVER;
+  }
+  else if (entrada->cima && selecao == GAME_OVER)
+  {
+    selecao = EM_JOGO;
+  }
+  else if (entrada->retorna)
+  {
+    selecao = GAME_OVER;
+  }
+
+  // Desenha os objetos do jogo.
+  desenharTodosOsObjetos();
+
+  // Determina as posições dos textos.
+  int mesY = 2;
+  int voltarY = mesY + 2;
+  int sairY = voltarY + 1;
+  int opcaoX = 6;
+
+  // Determina a posição da flecha de seleção na tela e os atributos
+  // dos textos de opção.
+  attr_t voltarAttr = 0;
+  attr_t sairAttr = 0;
+  attr_t selecionadoAttr = A_BOLD;
+  int flechaY;
+  int flechaX = opcaoX - 2;
+  switch (selecao)
+  {
+  case EM_JOGO:
+    voltarAttr = selecionadoAttr;
+    flechaY = voltarY;
+    break;
+  case GAME_OVER:
+    sairAttr = selecionadoAttr;
+    flechaY = sairY;
+    break;
+  }
+
+  // Desenha as opções e a flecha de seleção.
+  werase(wPause);
+  box(wPause, 0, 0);
+
+  wattr_on(wPause, selecionadoAttr, NULL);
+  centralizarString(wPause, mesY, "PAUSE");
+  wattr_off(wPause, selecionadoAttr, NULL);
+
+  wattr_on(wPause, voltarAttr, NULL);
+  mvwaddstr(wPause, voltarY, opcaoX, "VOLTAR AO JOGO");
+  wattr_off(wPause, voltarAttr, NULL);
+
+  wattr_on(wPause, sairAttr, NULL);
+  mvwaddstr(wPause, sairY, opcaoX, "SAIR DO JOGO");
+  wattr_off(wPause, sairAttr, NULL);
+
+  wattr_on(wPause, selecionadoAttr, NULL);
+  mvwaddstr(wPause, flechaY, flechaX, ">");
+  wattr_off(wPause, selecionadoAttr, NULL);
+
+  wrefresh(wPause);
+
+  // Adiciona a janela à lista de renderização.
+  wnoutrefresh(wPause);
+
+  // Se o jogador confirmar, muda o subestado para refletir a seleção.
+  if (entrada->confirma)
+  {
+    subestado = selecao;
+  }
+
+  // Sai do pause se o jogador pressionar o botão de pause novamente.
+  if (entrada->pause)
+  {
+    subestado = EM_JOGO;
+  }
 
   return subestado;
 }
@@ -444,38 +622,32 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   {
     subestado = EM_JOGO;
     nivel++;
+
     // Níveis ímpares têm balões.
     if (nivel % 2 == 1)
     {
-      tipoDoNivel = BALOES;
+      tipoDoNivel = NIVEL_BALOES;
       municao = 15;
-
-      const int LARGURA = getmaxx(wJogo);
-      numInimigos = 10;
-      for (int i = 0; i < numInimigos; i++)
-      {
-        OBJETO *obj = inserirObjeto(&objBalao);
-        obj->x = LARGURA - 1 - (i + 1) * (obj->grafico.colunas + 1);
-      }
+      numInimigosRestantes = 10;
     }
     // Níveis pares têm monstros.
     else
     {
-      tipoDoNivel = MONSTROS;
+      tipoDoNivel = NIVEL_MONSTROS;
       municao = 30;
-      numInimigos = 30;
+      numInimigosRestantes = 30;
     }
   }
 
   // Termina o jogo após o nível 10.
-  if (nivel > 10)
+  if (nivel > NIVEL_MAX)
   {
-    subestado = SUB_FIM;
+    subestado = QUADRO_CONGELADO;
   }
 
   // Atualiza e desenha os objetos do jogo.
-  atualizarObjetos(dt);
-  desenharQuadroDoJogo();
+  atualizarTodosOsObjetos(dt);
+  desenharTodosOsObjetos();
 
   return subestado;
 }
@@ -484,17 +656,16 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   Atualiza a posição dos objetos o jogo de acordo com o tempo passado
   desde a última vez que foram atualizados.
 */
-void atualizarObjetos(double dt)
+void atualizarTodosOsObjetos(double dt)
 {
   for (int i = 0; i < MAX_OBJETOS_ATIVOS; i++)
   {
-    OBJETO *obj = &objetos[i];
+    OBJETO *obj = &vetObjetos[i];
 
     // Atualiza o objeto se ele estiver ativo.
-    if (obj->estado != INATIVO)
+    if (obj->estado != OBJ_INATIVO)
     {
       // Variáveis para tornar o códido mais conciso.
-      GRAFICO *g = &obj->grafico;
       double dy = obj->vy * dt;
       double dx = obj->vx * dt;
 
@@ -510,7 +681,6 @@ void atualizarObjetos(double dt)
           obj->y += dy;
         }
         limitarPosicaoDeObjeto(obj, false, false);
-        yFlecha = obj->y + 1;
       }
       // Outros objetos se movem de acordo com sua velocidade.
       else
@@ -521,15 +691,17 @@ void atualizarObjetos(double dt)
         {
         case BALAO:
           limitarPosicaoDeObjeto(obj, true, true);
+          break;
         case MONSTRO:
           if (limitarPosicaoDeObjeto(obj, false, true) && obj->x < 0)
           {
-            obj->estado = OOB;
+            obj->estado = OBJ_OOB;
           }
+          break;
         case FLECHA:
           if (limitarPosicaoDeObjeto(obj, false, true) && obj->x > 0)
           {
-            obj->estado = OOB;
+            obj->estado = OBJ_OOB;
           }
           break;
         }
@@ -541,18 +713,18 @@ void atualizarObjetos(double dt)
 /*
   Desenha os objetos ativos, checando colisão no processo.
 */
-void desenharQuadroDoJogo(void)
+void desenharTodosOsObjetos(void)
 {
   // Limpa a janela do jogo.
   werase(wJogo);
 
   for (int i = 0; i < MAX_OBJETOS_ATIVOS; i++)
   {
-    OBJETO *obj = &objetos[i];
+    OBJETO *obj = &vetObjetos[i];
 
     // Desenha o objeto se ele estiver ativo, checando colisões
     // no processo.
-    if (obj->estado != INATIVO)
+    if (obj->estado != OBJ_INATIVO)
     {
       // Variáveis para tornar o códido mais conciso.
       GRAFICO *g = &obj->grafico;
@@ -582,7 +754,33 @@ void desenharQuadroDoJogo(void)
       // seu estado.
       if (!vivo)
       {
-        obj->estado = MORTO;
+        obj->estado = OBJ_MORTO;
+      }
+    }
+  }
+
+  // Nas fases de monstros, é feito um segundo passe para checar colisões
+  // dos monstros com as flechas. No primeiro passe, os monstros morrem
+  // se colidem com as flechas. No segundo, as flechas são destruídas se
+  // colididirem com um monstro.
+  if (tipoDoNivel == NIVEL_MONSTROS)
+  {
+    for (int i = 0; i < MAX_FLECHAS_ATIVAS; i++)
+    {
+      OBJETO *obj = &vetFlechas[i];
+      if (obj->estado == OBJ_VIO)
+      {
+        bool vivo = !desenharGraficoComColisao(
+            &obj->grafico,
+            wJogo,
+            obj->y,
+            obj->x,
+            posMonstros,
+            NULL);
+        if (!vivo)
+        {
+          obj->estado = OBJ_MORTO;
+        }
       }
     }
   }
@@ -592,21 +790,44 @@ void desenharQuadroDoJogo(void)
 }
 
 /*
-  Insere um cópia de objeto no arranjo de objetos e retorna um ponteiro
-  para ele.
+  Determina em qual subvetor inserir o objeto e o insere nele. Retorna
+  um ponteiro para a posição do objeto no vetor.
 */
-OBJETO *inserirObjeto(OBJETO *objeto)
+OBJETO *inserirObjeto(OBJETO *obj)
+{
+  switch (obj->id)
+  {
+  case FLECHA:
+    obj = inserirObjetoEmSubvetor(obj, vetFlechas, MAX_FLECHAS_ATIVAS);
+    break;
+  case BALAO:
+  case MONSTRO:
+    obj = inserirObjetoEmSubvetor(obj, vetInimigos, MAX_INIMIGOS_ATIVOS);
+    break;
+  case JOGADOR:
+    obj = inserirObjetoEmSubvetor(obj, jogador, MAX_JOGADOR);
+    break;
+  }
+  return obj;
+}
+
+/*
+  Coloca uma cópia de objeto no subvetor $vetor que tem capacidade para
+  $num objetos. Retorna um ponteiro para a posição do objeto no vetor.
+*/
+OBJETO *inserirObjetoEmSubvetor(OBJETO *objeto, OBJETO *vetor, int num)
 {
   // Procura um objeto inativo que pode ser substituido pelo novo
   // objeto.
   int indice = 0;
   bool inserido = false;
-  while (indice < MAX_OBJETOS_ATIVOS && !inserido)
+  while (indice < num && !inserido)
   {
-    if (objetos[indice].estado == INATIVO)
+    if (vetor[indice].estado == OBJ_INATIVO)
     {
-      objetos[indice] = *objeto;
-      objetos[indice].estado = VIVO;
+      vetor[indice] = *objeto;
+      objeto = &vetor[indice];
+      objeto->estado = OBJ_VIO;
       inserido = true;
     }
     else
@@ -617,60 +838,11 @@ OBJETO *inserirObjeto(OBJETO *objeto)
   assert(inserido);
   // Retorna um ponteiro para o objeto inserido ou NULL se o objeto não
   // pode ser inserido.
-  if (inserido)
-  {
-    objeto = &objetos[indice];
-  }
-  else
+  if (!inserido)
   {
     objeto = NULL;
   }
   return objeto;
-}
-
-/*
-  Ordena os objetos de acordo com a enumeração (enum menor -> posição
-  menor no arranjo.) Usado para garantir que checagem de colisões é
-  feita na ordem correta.
-*/
-void ordenarObjetos(void)
-{
-  // Encontra o primeiro objeto ativo.
-  int i = 0;
-  while (objetos[i].estado == INATIVO)
-  {
-    i++;
-  }
-
-  // Itera sobre a lista a partir desse objeto, a ordenando no processo.
-  for (; i < MAX_OBJETOS_ATIVOS - 1; i++)
-  {
-    // Testa se o objeto atual está ativo.
-    OBJETO *orig = &objetos[i];
-    if (orig->estado != INATIVO)
-    {
-      // Procura o objeto com menor ID (ou seja, maior prioridade) que
-      // vem após o atual.
-      OBJETO *menor = orig;
-      for (int j = i + 1; j < MAX_OBJETOS_ATIVOS; j++)
-      {
-        OBJETO *novo = &objetos[j];
-        if (menor->estado != INATIVO && novo->id < menor->id)
-        {
-          menor = novo;
-        }
-      }
-      // Se for encontrado, move os itens do atual até o encontrado um
-      // índice para frente e coloca o encontrado no espaço liberado.
-      // (insertion sort.)
-      if (menor != orig)
-      {
-        OBJETO tmp = *menor;
-        memmove(orig + 1, orig, sizeof(OBJETO) * (menor - orig));
-        *orig = tmp;
-      }
-    }
-  }
 }
 
 /*
@@ -769,7 +941,7 @@ bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad)
 void carregarMateriaisDoJogo(void)
 {
   objJogador.id = JOGADOR;
-  objJogador.x = 5;
+  objJogador.x = 6;
   objJogador.y = -127; // Deve ser definido quando criado.
   objJogador.vy = 15;
   carregarGrafico(&objJogador.grafico, "materiais/arqueiro.txt");

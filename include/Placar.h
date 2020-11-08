@@ -22,7 +22,7 @@ typedef struct tipo_jogador
 } TIPO_JOGADOR;
 
 /*
-  Tenta abrir o arquivo especificado por $caminho e lê até $MAX_SCORES
+  Tenta abrir o arquivo especificado por $caminho e lê até $NUM_MAX_SCORES
   scores, que são colocados no arranjo $placar. Returna o descritor do
   arquivo aberto. Coloca o número de scores efetivamente lidos no local
   apontado por $num_scores.

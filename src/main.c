@@ -4,10 +4,15 @@
 #include <TerminalIO.h>
 #include <Timer.h>
 
+#include <assert.h>
+#include <ctype.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+
+// TODO: som.
 
 // FPS que o jogo tentará manter, limitando a taxa de execução.
 #define MAX_FPS 120
@@ -15,6 +20,9 @@
 // Tamanho das subjanelas do menu principal.
 #define N_LINHAS_TITULO 15
 #define N_LINHAS_MENU (N_LINHAS - N_LINHAS_TITULO + 1)
+
+// Tempo que o jogo fica na tela de gameover (em segundos.)
+#define T_GAMEOVER 3
 
 // Define os estados em que o jogo pode estar.
 typedef enum estado
@@ -24,12 +32,17 @@ typedef enum estado
   PLACAR,
   JOGO,
   GAMEOVER,
+  NOVO_SCORE
 } ESTADO;
 
 ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt);
+ESTADO atualizarNovoScore(ENTRADA *entrada, bool trocaDeEstado, double dt);
+
+void desenharPlacar(int *origy, int *origx, int *altura, int *largura);
+bool validarChar(unsigned int ch);
 
 void carregarMateriais(void);
 void descarregarMateriais(void);
@@ -40,7 +53,7 @@ int main(void)
     Setup: carrega todos os recursos e configura os dados
     dos objetos (jogador, flechas, balões, etc.)
   */
-  
+
   // Configura locale para chars.
   setlocale(LC_CTYPE, "");
 
@@ -106,6 +119,9 @@ int main(void)
       break;
     case GAMEOVER:
       estado = atualizarGameover(&entrada, trocaDeEstado, dt);
+      break;
+    case NOVO_SCORE:
+      estado = atualizarNovoScore(&entrada, trocaDeEstado, dt);
       break;
     }
 
@@ -288,9 +304,60 @@ ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt)
 struct
 {
   FILE *arqScores;
-  TIPO_JOGADOR scores[MAX_SCORES];
+  TIPO_JOGADOR scores[NUM_MAX_SCORES];
   int numScores;
 } placar;
+
+/*
+  Mostra o placar no centro da tela. Coloca os valores de $origemY,
+  $origemX, $ALTURA e $LARGURA se os ponteiros correspondentes não
+  forem nulos.
+*/
+void desenharPlacar(int *origy, int *origx, int *altura, int *largura)
+{
+  // Coordenadas de base para o placar.
+  int ALTURA = NUM_MAX_SCORES + 1;
+  int LARGURA = PLACAR_TOTAL;
+  int origemY = centralizarY(stdscr, ALTURA);
+  int origemX = centralizarX(stdscr, LARGURA);
+
+  // Coloca os valores solicitados nos locais indicador para retorno.
+  if (altura)
+  {
+    *altura = ALTURA;
+  }
+  if (largura)
+  {
+    *largura = LARGURA;
+  }
+  if (origy)
+  {
+    *origy = origemY;
+  }
+  if (origx)
+  {
+    *origx = origemX;
+  }
+
+  // Desenha o cabeçalho.
+  attr_t attrCabecalho = A_BOLD | A_UNDERLINE;
+  attr_on(attrCabecalho, NULL);
+  mvaddstr(origemY, origemX, "Nome");
+  printw("%*s", LARGURA - 4, "Score");
+  attroff(attrCabecalho);
+
+  // Desenha os scores em si.
+  for (int i = 0; i < placar.numScores; i++)
+  {
+    mvaddstr(origemY + i + 1, origemX, placar.scores[i].nome);
+    mvprintw(
+        origemY + i + 1,
+        origemX + LARGURA - PLACAR_SCORE,
+        "%*d",
+        PLACAR_SCORE,
+        placar.scores[i].score);
+  }
+}
 
 ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt)
 {
@@ -298,7 +365,7 @@ ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt)
   ESTADO estado = PLACAR;
 
   // Volta ao menu se o jogador pressionar retorna.
-  if (entrada->retorna)
+  if (entrada->retorna || entrada->confirma)
   {
     estado = MENU;
   }
@@ -306,33 +373,17 @@ ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt)
   // Limpa a janela.
   erase();
 
-  // Coordenadas de base para o placar.
-  int ALTURA = MAX_SCORES + 1;
-  int LARGURA = PLACAR_TOTAL;
-  int origemY = centralizarY(stdscr, ALTURA);
-  int origemX = centralizarX(stdscr, LARGURA);
-
-  // Desenha o cabeçalho.
-  attr_t attrCabecalho = A_BOLD | A_UNDERLINE;
-  attr_on(attrCabecalho, NULL);
-  mvprintw(origemY, origemX, "%s", "Nome");
-  printw("%*s", LARGURA - 4, "Score");
-  attroff(attrCabecalho);
-
-  // Desenha os scores em si.
-  for (int i = 0; i < placar.numScores; i++)
-  {
-    move(origemY + i + 1, origemX);
-    printw("%-*s", PLACAR_NOME, placar.scores[i].nome);
-    printw("%*s", PLACAR_SEPARADOR, "");
-    printw("%*d", PLACAR_SCORE, placar.scores[i].score);
-  }
+  // Desenha o placar.
+  int altura;
+  desenharPlacar(NULL, NULL, &altura, NULL);
 
   // Desenha a mensagem para voltar.
   centralizarString(
       stdscr,
-      centroY(stdscr) + ALTURA,
-      "Pressione BACKSPACE [<--   ] para voltar ao menu");
+      centroY(stdscr) + altura,
+      "Aperte ENTER, ESPAÇO ou BACKSPACE para voltar ao menu");
+
+  box(stdscr, 0, 0);
 
   // Adiciona a janela padrão à fila de janelas a serem atualizadas
   // no fim do quadro.
@@ -391,10 +442,203 @@ ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt)
  *                                                                      
  */
 
+struct
+{
+  GRAFICO gGameover;
+} gameover;
+
 ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt)
 {
   // O estado para o qual o jogo mudará quando a função retornar.
   ESTADO estado = GAMEOVER;
+
+  // Variáveis persisntentes.
+  static double gameoverTimer;
+
+  // Reinicia as variáveis no início do gameover.
+  if (trocaDeEstado)
+  {
+    gameoverTimer = T_GAMEOVER;
+  }
+
+  // Avança o timer e checa o score do jogador.
+  gameoverTimer -= dt;
+  if (gameoverTimer < 0)
+  {
+    if (checarScore(jogo.ultimoScore, placar.scores))
+    {
+      estado = NOVO_SCORE;
+    }
+    else
+    {
+      estado = MENU;
+    }
+  }
+
+  // Desenha o gráfico de gameover.
+  erase();
+  box(stdscr, 0, 0);
+  wattr_on(stdscr, A_BOLD, NULL);
+  desenharGrafico(
+      &gameover.gGameover,
+      stdscr,
+      centralizarY(stdscr, gameover.gGameover.linhas),
+      centralizarX(stdscr, gameover.gGameover.colunas));
+  wattr_off(stdscr, A_BOLD, NULL);
+
+  wnoutrefresh(stdscr);
+
+  return estado;
+}
+
+/***
+ *      _   _                    _____                    
+ *     | \ | |                  / ____|                   
+ *     |  \| | _____   _____   | (___   ___ ___  _ __ ___ 
+ *     | . ` |/ _ \ \ / / _ \   \___ \ / __/ _ \| '__/ _ \
+ *     | |\  | (_) \ V / (_) |  ____) | (_| (_) | | |  __/
+ *     |_| \_|\___/ \_/ \___/  |_____/ \___\___/|_|  \___|
+ *                                                        
+ *                                                        
+ */
+
+bool validarChar(unsigned int ch)
+{
+  bool valido = true;
+  // Checa se $ch é ASCII.
+  if (ch >> 7 != 0)
+  {
+    valido = false;
+  }
+  // Checa se $ch é imprimível.
+  else if (!isprint(ch))
+  {
+    valido = false;
+  }
+  return valido;
+}
+
+ESTADO atualizarNovoScore(ENTRADA *entrada, bool trocaDeEstado, double dt)
+{
+  // O estado para o qual o jogo mudará quando a função retornar.
+  ESTADO estado = NOVO_SCORE;
+
+  // Variáveis persistentes.
+  static char *novoNome;
+  static int posicaoPlacar;
+  static int cursor;
+  static int lenNome;
+
+  if (trocaDeEstado)
+  {
+    // Cria um score sem nome e o coloca no arranjo de score. Guarda um
+    // ponteiro para seu nome para o jogador poder editá-lo.
+    TIPO_JOGADOR novoScore = {.nome = {0}, .score = jogo.ultimoScore};
+    posicaoPlacar = inserirScore(novoScore, placar.scores, &placar.numScores);
+    assert(posicaoPlacar >= 0);
+    novoNome = placar.scores[posicaoPlacar].nome;
+    // Ponto da array nome onde a entrada no jogador será inserida.
+    cursor = 0;
+    // Número de chars digitados.
+    lenNome = 0;
+  }
+
+  // TODO: suporte UTF-8.
+  // Processa a entrada do usuário na ordem em que foi digitada.
+  // Processamento é feito manualmente para 1) não bloquear
+  // 2) impedir que caracteres excessivos sejam impressos.
+  for (int i = 0; i < entrada->tamBuffer; i++)
+  {
+    int ch = entrada->buffer[i];
+
+    switch (ch)
+    {
+    // Move o cursor para a esquerda ou direita.
+    case KEY_LEFT:
+      if (cursor > 0)
+      {
+        cursor--;
+      }
+      break;
+    case KEY_RIGHT:
+      if (cursor < lenNome)
+      {
+        cursor++;
+      }
+      break;
+    // Move o cursor para a esquerda e deleta o caratere selecionado.
+    case KEY_BACKSPACE:
+    case '\b':
+      if (cursor <= 0)
+      {
+        break;
+      }
+      cursor--;
+    // Deleta o caractere selecionado.
+    case KEY_DC:
+      if (cursor < lenNome)
+      {
+        memmove(
+            novoNome + cursor,
+            novoNome + cursor + 1,
+            lenNome - cursor - 1);
+        lenNome--;
+      }
+      break;
+    // Insere o caractere digitado.
+    default:
+      if (lenNome < TAM_NOME - 1 && validarChar(ch))
+      {
+        // Move os chars do nome para dar espaço ao novo char.
+        memmove(novoNome + cursor + 1, novoNome + cursor, lenNome - cursor);
+        novoNome[cursor] = ch;
+        cursor++;
+        lenNome++;
+      }
+    }
+  }
+
+  // Preenche a porção não utilizada do vetor nome com \0.
+  memset(novoNome + lenNome, '\0', TAM_NOME - lenNome);
+
+  if (entrada->confirmaSemEspaco)
+  {
+    // Se o jogador confirmar sem ter entrado seu nome, dá um nome padrão
+    // a ele.
+    if (lenNome == 0)
+    {
+      strncpy(novoNome, "Jogador sem nome", TAM_NOME);
+    }
+    salvarScores(placar.arqScores, placar.scores, placar.numScores);
+    estado = MENU;
+  }
+
+  // Mostra o placar para o jogador poder ver sua posição e seu nome
+  // enquanto estiver digitando.
+  erase();
+
+  int origemY, origemX, altura;
+  desenharPlacar(&origemY, &origemX, &altura, NULL);
+
+  // Desenha o caractere selecionado com um underline.
+  int ch = novoNome[cursor];
+  if (ch == '\0')
+  {
+    ch = ' ';
+  }
+  mvaddch(
+      origemY + posicaoPlacar + 1,
+      origemX + cursor,
+      ch | A_UNDERLINE);
+
+  centralizarString(
+      stdscr,
+      centroY(stdscr) + altura,
+      "Digite seu nome e aperte ENTER para entrar para o placar!");
+
+  box(stdscr, 0, 0);
+
+  wnoutrefresh(stdscr);
 
   return estado;
 }
@@ -423,6 +667,9 @@ void carregarMateriais(void)
 
   // Jogo.
   carregarMateriaisDoJogo();
+
+  // Gameover.
+  carregarGrafico(&gameover.gGameover, "materiais/gameover.txt");
 }
 
 void descarregarMateriais(void)
@@ -438,4 +685,7 @@ void descarregarMateriais(void)
 
   // Jogo.
   descarregarMateriaisDoJogo();
+
+  // Gameover.
+  descarregarGrafico(&gameover.gGameover);
 }

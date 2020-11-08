@@ -1,5 +1,7 @@
 prog_name = bow-and-arrow
 
+# TODO: refazer essa bagunça.
+
 # Caminhos.
 source_dir  = src
 include_dir = include
@@ -16,7 +18,7 @@ headers = $(wildcard $(include_dir)/*.h)
 common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L. -lm
 # common_flags += -std=c99 -Wpedantic
 # common_flags += -pedantic-errors
-# common_flags += -Werror
+# # common_flags += -Werror
 # common_flags += -Wall
 # common_flags += -Wextra
 # common_flags += -Waggregate-return
@@ -87,12 +89,10 @@ binary_dir = $(root)/bin
 object_dir = $(root)/obj
 objects    = $(patsubst $(source_dir)/%.c,$(object_dir)/%.o,$(sources))
 
-# Compila e linka o programa.
 # Copia executável para raiz.
 $(BIN_NAME): $(binary_dir)/$(BIN_NAME)
 	cp $^ $@ 2> /dev/null || :
 	cp $(os_lib_dir)/* . 2> /dev/null || :
-	$(script_dir)/atalho.sh $(OS) $(BIN_NAME)
 
 # Gera executável.
 $(binary_dir)/$(BIN_NAME): $(objects)

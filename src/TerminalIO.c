@@ -1,4 +1,5 @@
 #include <TerminalIO.h>
+#include <Timer.h>
 
 #include <assert.h>
 #include <ctype.h>
@@ -99,9 +100,11 @@ int centralizarX(WINDOW *win, int largura)
   return (getmaxx(win) - largura) / 2;
 }
 
-bool continuacao(char c)
+bool continuacao(unsigned int ch)
 {
-  return (c >> 6) == 0x2;
+  // No UTF-8, um byte que começa com 0x8 (0b10xxxxxx) é
+  // continuação de um code point anterior.
+  return (ch >> 6) == 0x2;
 }
 
 void centralizarString(WINDOW *win, int y, const char *str)
@@ -124,17 +127,17 @@ void centralizarString(WINDOW *win, int y, const char *str)
 ENTRADA *processarEntrada(ENTRADA *entrada)
 {
   // Limpa a struct de entrada.
-  memset(entrada, false, sizeof(entrada));
+  memset(entrada, false, sizeof(ENTRADA));
 
   // Itera sobre a stream de entrada do curses até ela ser exausta.
   int ch;
   while ((ch = getch()) != ERR)
   {
     // Se houver espaço, guarda o char atual na cópia do buffer de
-    // entrada->
-    if (entrada->tamBuffer < MAX_ENTRADA && (ch & 0xFF))
+    // entrada.
+    if (entrada->tamBuffer < MAX_ENTRADA)
     {
-      entrada->buffer[entrada->tamBuffer] = (ch & 0xFF);
+      entrada->buffer[entrada->tamBuffer] = ch;
       entrada->tamBuffer++;
     }
 
@@ -155,23 +158,14 @@ ENTRADA *processarEntrada(ENTRADA *entrada)
     case KEY_ENTER:
     case '\n':
     case '\r':
+      entrada->confirmaSemEspaco = true;
+    case ' ':
       entrada->confirma = true;
       break;
     case KEY_BACKSPACE:
     case '\b':
       entrada->retorna = true;
       break;
-    case ' ':
-      entrada->espaco = true;
-      break;
-    // Código do ALT / Esc. Próximo caractere deve ser
-    // testado para ver se é ESC ou ALT.
-    case 27:
-      if ((ch = getch()) != ERR)
-      {
-        ungetch(ch);
-        break;
-      }
     case 'p':
       entrada->pause = true;
       break;
@@ -247,6 +241,9 @@ void corrigirTamanhoDoTerminal(void)
 
       wrefresh(win);
     }
+
+    // Limita a taxa de execução.
+    pause(0.05);
   }
 
   // Deleta a janela.

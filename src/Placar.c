@@ -27,13 +27,13 @@ FILE *lerScores(const char *caminho, TIPO_JOGADOR placar[], int *numScores)
       exit(EXIT_FAILURE);
     }
   }
-  // Tenta ler $MAX_SCORES, inicializa os scores que não puderam
+  // Tenta ler $NUM_MAX_SCORES, inicializa os scores que não puderam
   // ser lidos com zeros.
-  int scoresLidos = fread(placar, sizeof(TIPO_JOGADOR), MAX_SCORES, arq);
+  int scoresLidos = fread(placar, sizeof(TIPO_JOGADOR), NUM_MAX_SCORES, arq);
   memset(
       placar + scoresLidos,
       0,
-      sizeof(TIPO_JOGADOR) * (MAX_SCORES - scoresLidos));
+      sizeof(TIPO_JOGADOR) * (NUM_MAX_SCORES - scoresLidos));
   // Atualiza $numScores.
   *numScores = scoresLidos;
   return arq;
@@ -41,7 +41,7 @@ FILE *lerScores(const char *caminho, TIPO_JOGADOR placar[], int *numScores)
 
 bool checarScore(int novoScore, TIPO_JOGADOR placar[])
 {
-  return novoScore > placar[MAX_SCORES - 1].score;
+  return novoScore > placar[NUM_MAX_SCORES - 1].score;
 }
 
 int inserirScore(TIPO_JOGADOR novoScore, TIPO_JOGADOR placar[], int *numScores)
@@ -50,7 +50,7 @@ int inserirScore(TIPO_JOGADOR novoScore, TIPO_JOGADOR placar[], int *numScores)
   // que $novoScore.
   int indice = 0;
   bool incluido = false;
-  while (indice < MAX_SCORES && !incluido)
+  while (indice < NUM_MAX_SCORES && !incluido)
   {
     // Se for encontrado um elemento com score menor que o de $novoScore,
     // move os outros elementos para frente e insere $novoScore.
@@ -59,9 +59,13 @@ int inserirScore(TIPO_JOGADOR novoScore, TIPO_JOGADOR placar[], int *numScores)
       memmove(
           placar + indice + 1,
           placar + indice,
-          sizeof(TIPO_JOGADOR) * (MAX_SCORES - indice - 1));
+          sizeof(TIPO_JOGADOR) * (NUM_MAX_SCORES - indice - 1));
       placar[indice] = novoScore;
       incluido = true;
+    }
+    else
+    {
+      indice++;
     }
   }
   // Se $novoScore não tiver sido incluido, retorna -1.
@@ -72,9 +76,10 @@ int inserirScore(TIPO_JOGADOR novoScore, TIPO_JOGADOR placar[], int *numScores)
   // Se tiver sido incluído e o número prévio de scores for menor que
   // o número máximo (ou seja, $novoScore foi incluído sem remover
   // um score antigo) incrementa o contador de scores.
-  else if (*numScores < MAX_SCORES) // && incluido
+  else if (*numScores < NUM_MAX_SCORES) // && incluido
   {
-    *numScores++;
+    // *numScores++ não funciona (?)
+    *numScores = *numScores + 1;
   }
   return indice;
 }
@@ -82,6 +87,7 @@ int inserirScore(TIPO_JOGADOR novoScore, TIPO_JOGADOR placar[], int *numScores)
 void salvarScores(FILE *arq, TIPO_JOGADOR placar[], int numScores)
 {
   // Tenta escrever $placar no disco. Fecha o programa se falhar.
+  rewind(arq);
   int scoresSalvos = fwrite(
       placar,
       sizeof(TIPO_JOGADOR),

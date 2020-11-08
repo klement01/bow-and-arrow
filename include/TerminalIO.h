@@ -12,7 +12,7 @@
 #define N_COLUNAS 80
 
 // Número de chars que são guardados durante uma entrada.
-#define MAX_ENTRADA 8
+#define MAX_ENTRADA 16
 
 #if defined(_WIN32) || defined(WIN32)
 /*
@@ -79,8 +79,8 @@ typedef struct entrada
   bool cima;
   bool baixo;
   bool confirma;
+  bool confirmaSemEspaco;
   bool retorna;
-  bool espaco;
   bool pause;
   bool terminalRedimensionado;
 } ENTRADA;
@@ -129,9 +129,9 @@ int centralizarY(WINDOW *win, int altura);
 int centralizarX(WINDOW *win, int largura);
 
 /*
-  Retorna true se $c for a continuacao de um byte anterior (UTF-8.)
+  Retorna true se $ch for a continuacao de um byte anterior (UTF-8.)
 */
-bool continuacao(char c);
+bool continuacao(unsigned int ch);
 
 /*
   Desenha uma string no centro da linha especificada.
