@@ -1,3 +1,7 @@
 .vscode
 build
-bow-and-arrow
+libs/PDCursesMod
+/bow-and-arrow
+/bow-and-arrow.exe
+/libXCurses.so
+/pdcurses.dll

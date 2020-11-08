@@ -1,54 +1,112 @@
-CC = c99
-_PROG = bow-and-arrow
-_DEPS = Grafico.h Objeto.h Timer.h Vetor.h
-_OBJ = main.o Grafico.o Objeto.o Timer.o Vetor.o
+prog_name = bow-and-arrow
 
-# Baseado em:
-# <https://cs.colby.edu/maxwell/courses/tutorials/maketutor/>
+# TODO: refazer essa bagunça.
 
-# Usado com todas as configurações de compilação.
-SDIR = src
-IDIR = include
-BDIR = build
-MDIR = materiais
-CFLAGS = -D'_POSIX_C_SOURCE=199309L' -std=c99 -I$(IDIR)
+# Caminhos.
+source_dir  = src
+include_dir = include
+build_dir   = build
+mat_dir     = materiais
+lib_dir     = libs
+script_dir  = etc
 
-# Configurações específicas de debug.
-# Usar 'make DEBUG=1'
-DEBUG_ROOT = $(BDIR)/debug
-DEBUG_FLAGS = -ggdb -O0
+# Arquivos individuais.
+sources = $(wildcard $(source_dir)/*.c)
+headers = $(wildcard $(include_dir)/*.h)
 
-# Configurações específicas de release.
-RELEASE_ROOT = $(BDIR)/release
-RELEASE_FLAGS = -DNDEBUG -g0 -O3
+# Configurações universais.
+common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L. -lm
+# common_flags += -std=c99 -Wpedantic
+# common_flags += -pedantic-errors
+# # common_flags += -Werror
+# common_flags += -Wall
+# common_flags += -Wextra
+# common_flags += -Waggregate-return
+# common_flags += -Wbad-function-cast
+# common_flags += -Wcast-align
+# common_flags += -Wcast-qual
+# common_flags += -Wfloat-equal
+# common_flags += -Wformat=2
+# common_flags += -Wlogical-op
+# common_flags += -Wmissing-declarations
+# common_flags += -Wmissing-include-dirs
+# common_flags += -Wmissing-prototypes
+# common_flags += -Wnested-externs
+# common_flags += -Wpointer-arith
+# common_flags += -Wredundant-decls
+# common_flags += -Wsequence-point
+# common_flags += -Wshadow
+# common_flags += -Wstrict-prototypes
+# common_flags += -Wswitch
+# common_flags += -Wundef
+# common_flags += -Wunreachable-code
+# common_flags += -Wunused-but-set-parameter
+# common_flags += -Wwrite-strings
+
+# Configurações específicas do Linux 64 bits.
+linux64_compiler = c99
+linux64_lib_dir  = $(lib_dir)/linux64
+linux64_libs     = -lncursesw -lX11
+linux64_flags    = -D'_POSIX_C_SOURCE=199309L' -L$(linux64_lib_dir) \
+	-Wl,-rpath,'$$ORIGIN'
+
+# Configurações específicas do Windows 64 bits.
+windows64_compiler = x86_64-w64-mingw32-gcc
+windows64_lib_dir  = $(lib_dir)/win64
+windows64_libs     = -lpdcurses 
+windows64_flags    = -D'PDC_DLL_BUILD' -D'PDC_WIDE' -D'PDC_FORCE_UTF8' \
+	-L$(windows64_lib_dir)
+
+# Escolhe quais flags de OS usar.
+OS ?= LINUX64
+ifeq ($(OS), LINUX64)
+	CC = $(linux64_compiler)
+	REQ_FLAGS    = $(common_flags) $(linux64_flags) $(linux64_libs)
+	BIN_NAME     = $(prog_name)
+	os_lib_dir   = $(linux64_lib_dir)
+	os_build_dir = $(build_dir)/linux64
+else ifeq ($(OS), WIN64)
+	CC           = $(windows64_compiler)
+	REQ_FLAGS    = $(common_flags) $(windows64_flags) $(windows64_libs)
+	BIN_NAME     = $(prog_name).exe
+	os_lib_dir   = $(windows64_lib_dir)
+	os_build_dir = $(build_dir)/win64
+else
+	$(error Invalid OS)
+endif
 
 # Escolhe quais flags especiais usar.
-DEBUG ?= 1
+DEBUG ?= 1 
 ifeq ($(DEBUG), 1)
-	SFLAGS = $(DEBUG_FLAGS)
-	ROOT = $(DEBUG_ROOT)
+	SPECIAL_FLAGS = -ggdb -O0
+	root          = $(os_build_dir)/debug
 else
-	SFLAGS = $(RELEASE_FLAGS)
-	ROOT = $(RELEASE_ROOT)
+	SPECIAL_FLAGS = -D'NDEBUG' -g0 -O3
+	root          = $(os_build_dir)/release
 endif
-ODIR = $(ROOT)/obj
-PROG = $(ROOT)/bin/$(_PROG)
 
-# Deriva os caminhos dos arquivos a partir dos nomes e raizes.
-DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+binary_dir = $(root)/bin
+object_dir = $(root)/obj
+objects    = $(patsubst $(source_dir)/%.c,$(object_dir)/%.o,$(sources))
 
-# Compila e linka o programa.
-$(ODIR)/%.o: $(SDIR)/%.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS) $(SFLAGS)
+# Copia executável para raiz.
+$(BIN_NAME): $(binary_dir)/$(BIN_NAME)
+	cp $^ $@ 2> /dev/null || :
+	cp $(os_lib_dir)/* . 2> /dev/null || :
 
-$(PROG): $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS) $(SFLAGS)
-	cp $(PROG) .
+# Gera executável.
+$(binary_dir)/$(BIN_NAME): $(objects)
+	$(CC) -o $@ $^ $(REQ_FLAGS) $(SPECIAL_FLAGS)
+
+# Gera arquivos objeto.
+$(objects): $(object_dir)/%.o: $(source_dir)/%.c $(headers)
+	$(CC) -o $@ -c $< $(REQ_FLAGS) $(SPECIAL_FLAGS)
+
+#--------------------------------------------------------------------------
 
 # Apaga todos os arquivos das builds.
 # Usar 'make clean'
 .PHONY: clean
 
 clean:
-	find $(BDIR) -type f -exec rm {} \;
+	find $(build_dir) -type f -exec rm {} \;

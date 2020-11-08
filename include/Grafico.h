@@ -3,18 +3,63 @@
 
 /*
   Estrutura de gráficos de um objeto do jogo e métodos
-  para carregá-los e descarregá-los.
+  para carregá-los, descarregá-los e desenhá-los.
 */
 
-#include <Vetor.h>
+#include <TerminalIO.h>
 
-typedef struct
+/*
+  Constante usada para definir quando um gráfico é centralizado.
+  Em teoria, nenhum objeto do jogo vai realmente precisar ser desenhado
+  nessa coordenada.
+*/
+#define CENTRO -128
+
+/*
+  Estrutura com ponteiro para uma matriz com os caracteres de um
+  gráficos e informações sobre esse gráfico.
+*/
+typedef struct struct_grafico
 {
-  iVetor tamanho;
-  char **str;
-} Grafico;
+  int linhas;
+  int colunas;
+  int bytesPorLinha;
+  char **imagem;
+} GRAFICO;
 
-Grafico carregarGrafico(char *caminho);
-void descarregarGrafico(Grafico *grafico);
+/*
+  Cria uma instância de um gráfico e guarda nela o gráfico no arquivo
+  especificado por $caminho.
+*/
+GRAFICO *carregarGrafico(GRAFICO *grafico, const char *caminho);
+
+/*
+  Libera a memória ocupada pelo gráfico e torna seus ponteiros nulos.
+*/
+void descarregarGrafico(GRAFICO *grafico);
+
+/*
+  Desenha o $grafico nas coordenadas de $janela.
+  Se o argumento $CENTRO for passado para uma das coordenadas,
+  centraliza o gráfico dentro da janela nessa coordenada.
+*/
+void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x);
+
+/*
+  Desenha o $grafico nas coordenadas de $janela.
+  Se o argumento $CENTRO for passado para uma das coordenadas,
+  centraliza o gráfico dentro da janela nessa coordenada.
+  Se $dst não for nulo, prenche o arranjo com true onde algum char do
+  gráfico for desenhado.
+  Se $src não for nulo, retorna true se algum char do gráfico for
+  desenhado em algum índice com valor verdadeiro desse arranjo.
+*/
+bool desenharGraficoComColisao(
+    GRAFICO *grafico,
+    WINDOW *win,
+    int y,
+    int x,
+    bool src[],
+    bool dst[]);
 
 #endif
