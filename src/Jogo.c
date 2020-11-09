@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO: adicionar diferenças entre níveis.
 
 // Número máximo de objetos que podem existir no jogo em um determinado
 // momento.
@@ -38,7 +37,8 @@
 #define T_GAMEOVER 1.5
 
 // Nível máximo que o jogo pode atingir.
-#define NIVEL_MAX 10
+// TODO: adicionar mais níveis.
+#define NIVEL_MAX 2
 
 /***
  *      _______  _                    
@@ -68,7 +68,7 @@ typedef enum id_objeto
 typedef enum estado_obj
 {
   OBJ_INATIVO,
-  OBJ_VIO,
+  OBJ_VIVO,
   OBJ_MORTO,
   OBJ_OOB // Out of bounds.
 } ESTADO_OBJ;
@@ -100,7 +100,7 @@ typedef enum nivel
 */
 enum pontos
 {
-  BONUS_VITORIA = 10000,
+  BONUS_VITORIA = 5000,
   FLECHA_EXTRA = 50,
   BALAO_MORTO = 100,
   MONSTRO_MORTO = 200,
@@ -275,6 +275,10 @@ SUBESTADO atualizarQuadroDoJogo(
   }
 
   // Normaliza o score.
+  if (scoreCabecalho > MAX_SCORE)
+  {
+    scoreCabecalho = MAX_SCORE;
+  }
   if (scoreAtual > MAX_SCORE)
   {
     scoreAtual = MAX_SCORE;
@@ -284,14 +288,25 @@ SUBESTADO atualizarQuadroDoJogo(
   werase(wCabecalho);
   wborder(wCabecalho, 0, 0, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE);
 
-  mvwprintw(wCabecalho, 1, 1, "SCORE:     %*d", PLACAR_SCORE, scoreCabecalho);
-  if (scoreAtual > highscore)
+  // Determina o nível, munição e high score que devem ser desenhados.
+  int municaoCabecalho = municao;
+  int nivelCabecalho = nivel;
+  if (nivel > NIVEL_MAX)
   {
-    highscore = scoreAtual;
+    nivelCabecalho = NIVEL_MAX;
+    municaoCabecalho = 0;
   }
+  if (scoreCabecalho > highscore)
+  {
+    highscore = scoreCabecalho;
+  }
+
+  // Escreve as informações do jogo no cabeçalho.
+  mvwprintw(wCabecalho, 1, 1, "SCORE:     %*d", PLACAR_SCORE, scoreCabecalho);
+
   mvwprintw(wCabecalho, 2, 1, "HIGHSCORE: %*d", PLACAR_SCORE, highscore);
 
-  mvwprintw(wCabecalho, 1, centralizarX(wCabecalho, 9), "NÍVEL %3d", nivel);
+  mvwprintw(wCabecalho, 1, centralizarX(wCabecalho, 9), "NÍVEL %3d", nivelCabecalho);
 
   centralizarString(wCabecalho, 2, "FLECHAS");
 
@@ -299,10 +314,10 @@ SUBESTADO atualizarQuadroDoJogo(
 
   // Desenha as flechas.
   const int LARGURA = getmaxx(wCabecalho);
-  for (int i = 0; i < municao; i++)
+  for (int i = 0; i < municaoCabecalho; i++)
   {
-    mvwaddch(wCabecalho, 1, LARGURA - 2 - i, '|');
-    mvwaddch(wCabecalho, 2, LARGURA - 2 - i, 'V');
+    mvwaddch(wCabecalho, 1, LARGURA - 2 - i, '|' | A_BOLD | COLOR_PAIR(AMARELO));
+    mvwaddch(wCabecalho, 2, LARGURA - 2 - i, 'V' | A_BOLD);
   }
 
   // Adiciona as janelas à fila de janelas a serem atualizadas.
@@ -420,7 +435,7 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   for (int i = 0; i < MAX_OBJETOS_ATIVOS; i++)
   {
     OBJETO *obj = &vetObjetos[i];
-    if (obj->estado != OBJ_VIO && obj->estado != OBJ_INATIVO)
+    if (obj->estado != OBJ_VIVO && obj->estado != OBJ_INATIVO)
     {
       switch (obj->id)
       {
@@ -743,7 +758,9 @@ void desenharTodosOsObjetos(void)
         vivo = !desenharGraficoComColisao(g, wJogo, y, x, posMonstros, NULL);
         break;
       case FLECHA:
-        desenharGraficoComColisao(g, wJogo, y, x, NULL, posFlecha);
+        // Limita a colisão da flecha para sua ponta.
+        desenharGraficoComColisaoLimitada(
+            g, wJogo, y, x, NULL, posFlecha, g->linhas - 1, g->colunas - 1);
         break;
       case BALAO:
         vivo = !desenharGraficoComColisao(g, wJogo, y, x, posFlecha, NULL);
@@ -773,15 +790,17 @@ void desenharTodosOsObjetos(void)
     for (int i = 0; i < MAX_FLECHAS_ATIVAS; i++)
     {
       OBJETO *obj = &vetFlechas[i];
-      if (obj->estado == OBJ_VIO)
+      if (obj->estado == OBJ_VIVO)
       {
-        bool vivo = !desenharGraficoComColisao(
+        bool vivo = !desenharGraficoComColisaoLimitada(
             &obj->grafico,
             wJogo,
             obj->y,
             obj->x,
             posMonstros,
-            NULL);
+            NULL,
+            obj->grafico.linhas - 1,
+            obj->grafico.colunas - 1);
         if (!vivo)
         {
           obj->estado = OBJ_MORTO;
@@ -832,7 +851,7 @@ OBJETO *inserirObjetoEmSubvetor(OBJETO *objeto, OBJETO *vetor, int num)
     {
       vetor[indice] = *objeto;
       objeto = &vetor[indice];
-      objeto->estado = OBJ_VIO;
+      objeto->estado = OBJ_VIVO;
       inserido = true;
     }
     else

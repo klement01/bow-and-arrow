@@ -45,6 +45,7 @@ void inicializarTerminal(void)
   // Habilita cores no terminal, se disponível.
   if (has_colors())
   {
+    // Inicializa os pares de cores.
     start_color();
     init_pair(PRETO, COLOR_BLACK, COLOR_BLACK);
     init_pair(AZUL, COLOR_BLUE, COLOR_BLACK);
@@ -55,6 +56,7 @@ void inicializarTerminal(void)
     init_pair(AMARELO, COLOR_YELLOW, COLOR_BLACK);
     init_pair(BRANCO, COLOR_WHITE, COLOR_BLACK);
   }
+
 #ifdef WINDOWS
   // No PDCurses, tenta redimensionar a tela.
   resize_term(N_LINHAS, N_COLUNAS);

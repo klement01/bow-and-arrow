@@ -76,4 +76,26 @@ bool desenharGraficoComColisao(
     bool src[],
     bool dst[]);
 
+/*
+  Desenha o $grafico nas coordenadas de $janela.
+  Se o argumento $CENTRO for passado para uma das coordenadas,
+  centraliza o gráfico dentro da janela nessa coordenada.
+  Se $dst não for nulo, prenche o arranjo com true onde algum char do
+  gráfico for desenhado.
+  Se $src não for nulo, retorna true se algum char do gráfico for
+  desenhado em algum índice com valor verdadeiro desse arranjo.
+  As checagems de colisão só ocorrem com o char na posição indicada por
+  $jColisão e $iColisão.
+*/
+bool desenharGraficoComColisaoLimitada(
+    GRAFICO *grafico,
+    WINDOW *win,
+    int y,
+    int x,
+    bool src[],
+    bool dst[],
+    int jColisao,
+    int iColisao);
+
+
 #endif

@@ -41,7 +41,13 @@ int main(int argc, char *argv[])
   int len = strlen(caminho);
   char *caminho_atr = (char *)malloc(sizeof(char) * (len + 1));
   strcpy(caminho_atr, caminho);
-  strcpy(caminho_atr + len - 3, "att");
+#ifdef WINDOWS
+  const char extensao[] = {"pdc"};
+#endif
+#ifdef LINUX
+  const char extensao[] = {"ncr"};
+#endif
+  strcpy(caminho_atr + len - 3, extensao);
 
   // Loop principal.
   chtype ch;

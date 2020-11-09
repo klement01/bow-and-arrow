@@ -8,28 +8,33 @@ include_dir = include
 lib_dir     = libs
 obj_dir     = obj
 
-# Arquivos individuais (do jogo.)
-SOURCES = $(wildcard $(src_dir)/*.c)
-HEADERS = $(wildcard $(include_dir)/*.h)
-OBJS    = $(patsubst $(src_dir)/%.c,$(obj_dir)/%.o,$(SOURCES))
-
 # Configurações globais.
 CFLAGS += -I$(include_dir) -lm
 
 # Configurações exclusivas dos sistemas operacionais.
 WINDOWS ?= 0
 ifeq ($(WINDOWS), 0)
+	# Linux.
 	default_cc = c99
 	CFLAGS += -lncursesw -lX11
+
+	obj_dir := $(obj_dir)/linux
 else
+	# Windows.
 	default_cc = x86_64-w64-mingw32-gcc
 	CFLAGS += -L$(lib_dir)
 	CFLAGS += -lpdcurses
 	CFLAGS += -I$(lib_dir)
 
+	obj_dir    := $(obj_dir)/windows
 	game_bin   := $(game_bin).exe
 	editor_bin := $(editor_bin).exe
 endif
+
+# Arquivos individuais (do jogo.)
+SOURCES = $(wildcard $(src_dir)/*.c)
+HEADERS = $(wildcard $(include_dir)/*.h)
+OBJS    = $(patsubst $(src_dir)/%.c,$(obj_dir)/%.o,$(SOURCES))
 
 # Configurações do alvo (debug, release.)
 DEBUG   ?= 0
@@ -47,8 +52,8 @@ endif
 GAME  ?= $(game_bin)
 PAINT ?= $(editor_bin)
 
-# Compila o jogo e o editor.
-all: jogo editor
+# Limpa e compila o jogo e o editor.
+all: clean jogo editor
 
 # Limpa.
 clean:

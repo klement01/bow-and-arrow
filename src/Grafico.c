@@ -13,7 +13,13 @@ GRAFICO *carregarGrafico(GRAFICO *grafico, const char *caminho)
   int len = strlen(caminho);
   char *caminho_atr = (char *)malloc(sizeof(char) * (len + 1));
   strcpy(caminho_atr, caminho);
-  strcpy(caminho_atr + len - 3, "att");
+#ifdef WINDOWS
+  const char extensao[] = {"pdc"};
+#endif
+#ifdef LINUX
+  const char extensao[] = {"ncr"};
+#endif
+  strcpy(caminho_atr + len - 3, extensao);
 
   carregarAtributos(grafico, caminho_atr);
 
@@ -63,7 +69,7 @@ void carregarImagem(GRAFICO *grafico, const char *caminho)
     }
     // Incrementa o número de bytes lidos nessa coluna e o
     // número de caracteres lidos, se for o caso.
-    else
+    else if (byte != '\r')
     {
       bytesLinhaAtual++;
       // Caracteres começam com "0" ou "11". Bytes que começam com
@@ -123,7 +129,7 @@ void carregarImagem(GRAFICO *grafico, const char *caminho)
       i++;
       j = 0;
     }
-    else
+    else if (byte != '\r')
     {
       imagem[i][j] = byte;
       j++;
@@ -221,7 +227,7 @@ void carregarAtributos(GRAFICO *grafico, const char *caminho)
       memset(atributos[i], 0, tamanhoLinha);
     }
   }
-  
+
   // Fecha o arquivo se ele foi aberto.
   if (arquivo)
   {
@@ -245,6 +251,27 @@ bool desenharGraficoComColisao(
     bool src[],
     bool dst[])
 {
+  desenharGraficoComColisaoLimitada(
+      grafico,
+      win,
+      y,
+      x,
+      src,
+      dst,
+      -1,
+      -1);
+}
+
+bool desenharGraficoComColisaoLimitada(
+    GRAFICO *grafico,
+    WINDOW *win,
+    int y,
+    int x,
+    bool src[],
+    bool dst[],
+    int jColisao,
+    int iColisao)
+{
   // Obtém as dimensões da janela.
   const int ALTURA = getmaxy(win);
   const int LARGURA = getmaxx(win);
@@ -264,33 +291,35 @@ bool desenharGraficoComColisao(
 
   // Itera sobre as linhas da imagem. Desenha cada caractere individualmente
   // e não desenha sobre as bordas da janela ou fora da janela.
-  for (int i = 0; i < grafico->linhas; i++)
+  for (int j = 0; j < grafico->linhas; j++)
   {
-    int charY = y + i;
+    int charY = y + j;
     // Se $charY fica dentro de $win, desenha essa linha.
     if (0 < charY && charY < ALTURA)
     {
       // Se o x inicial estiver fora da tela, avança pelos bytes
       // até chegar ao início.
-      int j = 0;
+      int iByte = 0;
       int charX = x;
-      while (charX <= 0 && j < grafico->bytesPorLinha)
+      while (charX <= 0 && iByte < grafico->bytesPorLinha)
       {
-        char byte = grafico->imagem[i][j];
+        char byte = grafico->imagem[j][iByte];
         if (!continuacao(byte))
         {
           charX++;
         }
-        j++;
+        iByte++;
       }
       // Move o cursor para o início da linha.
       wmove(win, charY, charX);
       // Enquanto x estiver dentro da tela, imprime os caracteres,
       // pulando os espaços.
-      while (charX < LARGURA - 1 && j < grafico->bytesPorLinha)
+      while (charX < LARGURA - 1 && iByte < grafico->bytesPorLinha)
       {
-        char byte = grafico->imagem[i][j];
-        // Pula espaço.
+        char byte = grafico->imagem[j][iByte];
+        int iChar = charX - x;
+        // Pula espaços em branco.
+        chtype atributo = grafico->atributos[j][iChar];
         if (isspace(byte))
         {
           wmove(win, charY, charX + 1);
@@ -298,18 +327,29 @@ bool desenharGraficoComColisao(
         // Imprime o char e checa colisões;
         else
         {
-          waddch(win, byte | grafico->atributos[i][charX - x]);
-          if (dst)
+          waddch(win, byte | atributo);
+          // Se a colisão foi limitada, checa se o caractere atual é o
+          // caractere desejado.
+          if (
+              (jColisao < 0 || iColisao < 0) ||
+              (j == jColisao && iChar == iColisao))
           {
-            dst[charY * N_COLUNAS + charX] = true;
-          }
-          if (src && src[charY * N_COLUNAS + charX])
-          {
-            houveColisao = true;
+            // Configura a posição do char como verdadeira no vetor
+            // de destino.
+            if (dst)
+            {
+              dst[charY * N_COLUNAS + charX] = true;
+            }
+            // Checa se a posição do char é verdadeira no vetor de
+            // origem.
+            if (src && src[charY * N_COLUNAS + charX])
+            {
+              houveColisao = true;
+            }
           }
         }
         // Atualiza a posição.
-        j++;
+        iByte++;
         charX = getcurx(win);
       }
     }
