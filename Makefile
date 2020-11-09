@@ -23,12 +23,12 @@ ifeq ($(WINDOWS), 0)
 	CFLAGS += -lncursesw -lX11
 else
 	default_cc = x86_64-w64-mingw32-gcc
-	CFLAGS += -I$(lib_dir)
 	CFLAGS += -L$(lib_dir)
 	CFLAGS += -lpdcurses
+	CFLAGS += -I$(lib_dir)
 
-	game_bin   = $(game_bin).exe
-	editor_bin = $(editor_bin).exe
+	game_bin   := $(game_bin).exe
+	editor_bin := $(editor_bin).exe
 endif
 
 # Configurações do alvo (debug, release.)
@@ -41,7 +41,9 @@ else ifeq ($(RELEASE), 1)
 endif
 
 # Usa os parâmetros padrão ou definidos pelo usuário.
-CC    ?= $(default_cc)
+ifeq ($(origin CC),default)
+	CC = $(default_cc)
+endif
 GAME  ?= $(game_bin)
 PAINT ?= $(editor_bin)
 
@@ -66,7 +68,7 @@ $(OBJS): $(obj_dir)/%.o: $(src_dir)/%.c $(HEADERS)
 # Compila o editor.
 editor: $(PAINT) 
 
-$(PAINT): $(obj_dir)/Editor.o $(obj_dir)/Grafico.o $(obj_dir)/TerminalIO.o
+$(PAINT): $(obj_dir)/Editor.o $(obj_dir)/Grafico.o $(obj_dir)/TerminalIO.o $(obj_dir)/Timer.o
 	$(CC) -o $@ $^ $(CFLAGS)
 
 $(obj_dir)/Editor.o: $(src_dir)/editor/Editor.c $(HEADERS)
