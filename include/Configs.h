@@ -6,6 +6,16 @@
 */
 
 /*
+  Sistema operacional utilizado.
+*/
+#if defined(_WIN32) || defined(WIN32)
+#define WINDOWS
+#else
+#define LINUX
+#define _POSIX_C_SOURCE 199309L
+#endif
+
+/*
   Constantes sobre o tamanho de estruturas de score.
 */
 #define TAM_NOME 40

@@ -3,11 +3,12 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef XCURSES
+#ifdef LINUX
 /*
   Conexão com servidor X.
 */
@@ -18,7 +19,7 @@ Display *xServer = NULL;
 
 void inicializarTerminal(void)
 {
-#ifdef XCURSES
+#ifdef LINUX
   // Abre conexão com servidor X principal.
   xServer = XOpenDisplay(NULL);
   if (!xServer)
@@ -27,6 +28,8 @@ void inicializarTerminal(void)
     exit(EXIT_FAILURE);
   }
 #endif
+  // Configura locale para chars.
+  setlocale(LC_CTYPE, "");
   // Inicializa a janela.
   initscr();
   // Impede que teclas digitadas apareçam no terminal automaticamente.
@@ -39,7 +42,20 @@ void inicializarTerminal(void)
   keypad(stdscr, true);
   // Desativa a espera por entradas.
   nodelay(stdscr, true);
-#ifdef PDCURSES
+  // Habilita cores no terminal, se disponível.
+  if (has_colors())
+  {
+    start_color();
+    init_pair(PRETO, COLOR_BLACK, COLOR_BLACK);
+    init_pair(AZUL, COLOR_BLUE, COLOR_BLACK);
+    init_pair(VERDE, COLOR_GREEN, COLOR_BLACK);
+    init_pair(CIANO, COLOR_CYAN, COLOR_BLACK);
+    init_pair(VERMELHO, COLOR_RED, COLOR_BLACK);
+    init_pair(MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(AMARELO, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(BRANCO, COLOR_WHITE, COLOR_BLACK);
+  }
+#ifdef WINDOWS
   // No PDCurses, tenta redimensionar a tela.
   resize_term(N_LINHAS, N_COLUNAS);
 #endif
@@ -51,7 +67,7 @@ void fecharTerminal(void)
 {
   // Fecha janela do curses.
   endwin();
-#ifdef XCURSES
+#ifdef LINUX
   // Fecha conexão com servidor X principal.
   assert(xServer);
   XCloseDisplay(xServer);
@@ -180,7 +196,7 @@ ENTRADA *processarEntrada(ENTRADA *entrada)
 
 bool verificarTamanhoDoTerminal(void)
 {
-#ifdef PDCURSES
+#ifdef WINDOWS
   // No PDCurses, o tamanho deve ser atualizado
   // manualmente após ser alterado pelo usuário.
   resize_term(0, 0);
@@ -254,7 +270,7 @@ void corrigirTamanhoDoTerminal(void)
   refresh();
 }
 
-#if defined(_WIN32) || defined(WIN32)
+#ifdef WINDOWS
 /*
   Entrada assíncrona para Windows.
 */
@@ -266,7 +282,9 @@ bool teclaPressionada(TECLA_ASYNC tecla)
   return (bool)GetAsyncKeyState(tecla);
 }
 
-#elif defined(XCURSES)
+#endif
+
+#ifdef LINUX
 /*
   Entrada assíncrona para sistemas com o gerenciador de janelas
   X11 (por exemplo, a maioria das distribuições do Linux.)
@@ -289,8 +307,5 @@ bool teclaPressionada(TECLA_ASYNC tecla)
 
   return pressionada;
 }
-
-#else
-#error Nenhum método de entrada assíncrona definido
 
 #endif

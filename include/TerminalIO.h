@@ -5,6 +5,7 @@
   Define funções de entrada e saída pelo terminal.
 */
 
+#include <Configs.h>
 #include <stdbool.h>
 
 // Dimensões do terminal inteiro.
@@ -14,10 +15,14 @@
 // Número de chars que são guardados durante uma entrada.
 #define MAX_ENTRADA 16
 
-#if defined(_WIN32) || defined(WIN32)
+#ifdef WINDOWS
 /*
   Windows usa PDCurses como biblioteca do curses.
 */
+
+#define PDC_DLL_BUILD
+#define PDC_WIDE
+#define PDC_FORCE_UTF8
 
 #include <PDCurses.h>
 #include <Panel.h>
@@ -38,14 +43,14 @@ typedef enum tecla_async
   ESPACO = VK_SPACE
 } TECLA_ASYNC;
 
-#else
+#endif
+
+#ifdef LINUX
 /*
   Linux usa o ncurses como biblioteca de curses.
 */
 
 #include <ncurses.h>
-
-#define XCURSES
 
 /*
   Códigos de tecla para leitura assíncrona com o servidor X. Usadas
@@ -84,6 +89,21 @@ typedef struct entrada
   bool pause;
   bool terminalRedimensionado;
 } ENTRADA;
+
+/*
+  Nomes dos pares de cores.
+*/
+typedef enum enum_cores
+{
+  PRETO = 1,
+  AZUL,
+  VERDE,
+  CIANO,
+  VERMELHO,
+  MAGENTA,
+  AMARELO,
+  BRANCO
+} PARES_DE_CORES;
 
 /*
   Cria uma instância de um terminal.

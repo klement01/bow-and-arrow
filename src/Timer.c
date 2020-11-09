@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#if defined(_WIN32) || defined(WIN32)
+#ifdef WINDOWS
 /*
   Implementação do timer para Windows. Usa funções da
   API do Windows, declaradas no header <windows.h>.
@@ -70,7 +70,9 @@ void pause(double segundos)
   Sleep(t);
 }
 
-#elif _POSIX_C_SOURCE >= 199309L
+#endif
+
+#ifdef LINUX
 /*
   Implementação do timer para Linux (e outros sistemas que
   sigam os padrões POSIX.) Requer POSIX.1b (real time extensions)
@@ -130,8 +132,5 @@ void pause(double segundos)
   struct timespec t = {s, ns};
   nanosleep(&t, NULL);
 }
-
-#else
-#error Nenhum método de timer definido
 
 #endif

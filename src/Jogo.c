@@ -1,4 +1,3 @@
-#include <Configs.h>
 #include <Grafico.h>
 #include <Jogo.h>
 #include <Timer.h>
@@ -24,13 +23,13 @@
 
 // Distância a qual um objeto pode estar fora da área do jogo sem
 // desaparecer / reaparecer do outro lado, em linhas / colunas.
-#define PADDING 2
+#define PADDING 1
 
 // Tempo mínimo entre flechas (em segundos.)
-#define T_FLECHAS 0.8
+#define T_FLECHAS 0.9
 
 // Tempo de contagem da munição após fim do nível (em segundos.)
-#define T_MUNICAO 0.2
+#define T_MUNICAO 0.1
 
 // Tempo entre aparição de monstros (em segundos.)
 #define T_MONSTROS 2.0
@@ -101,22 +100,11 @@ typedef enum nivel
 */
 enum pontos
 {
+  BONUS_VITORIA = 10000,
   FLECHA_EXTRA = 50,
   BALAO_MORTO = 100,
   MONSTRO_MORTO = 200,
 };
-
-/*
-  Subestados em que o jogo pode estar.
-*/
-typedef enum subestados
-{
-  GAME_OVER,
-  QUADRO_CONGELADO,
-  EM_JOGO,
-  PAUSADO,
-  TROCANDO_NIVEL,
-} SUBESTADO;
 
 /***
  *     __      __           _    __               _      
@@ -151,7 +139,8 @@ OBJETO *vetInimigos = vetObjetos + MAX_FLECHAS_ATIVAS;
 OBJETO *jogador = vetObjetos + MAX_FLECHAS_ATIVAS + MAX_INIMIGOS_ATIVOS;
 
 // Variáveis globais do jogo.
-int score;
+int scoreAtual;
+int scorePendente;
 int nivel;
 NIVEL tipoDoNivel;
 int municao;
@@ -187,7 +176,12 @@ void limparVetorPosicao(bool vetor[]);
 bool limitarValor(double *valor, double vmin, double vmax, bool wrap);
 bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad);
 
-int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int highscore)
+SUBESTADO atualizarQuadroDoJogo(
+    ENTRADA *entrada,
+    bool trocaDeEstado,
+    double dt,
+    int highscore,
+    int *score)
 {
   // Variáveis persistentes.
   static SUBESTADO subestado, ultimoSubestado;
@@ -225,7 +219,8 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
     // Configura variáveis iniciais.
     subestado = TROCANDO_NIVEL;
     ultimoSubestado = QUADRO_CONGELADO;
-    score = 0;
+    scoreAtual = 0;
+    scorePendente = 0;
     nivel = 0;
     municao = 0;
     timerGameover = T_GAMEOVER;
@@ -236,6 +231,10 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
   bool trocaDeSubestado = subestado != ultimoSubestado;
   trocaDeSubestado = trocaDeSubestado && ultimoSubestado != PAUSADO;
   ultimoSubestado = subestado;
+
+  // Score exibido no cabeçalho (não reflete necessariamente o score
+  // real.)
+  int scoreCabecalho = scoreAtual;
 
   // Atualiza o subestado apropriado.
   switch (subestado)
@@ -250,30 +249,45 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
     subestado = trocandoNivel(entrada, trocaDeSubestado, dt);
     break;
   case QUADRO_CONGELADO:
+    desenharTodosOsObjetos();
     timerGameover -= dt;
+    // Efeito do score aumentando no fim do jogo.
+    scoreCabecalho += scorePendente * 2 * (T_GAMEOVER - timerGameover) / T_GAMEOVER;
+    if (scoreCabecalho > scoreAtual + scorePendente)
+    {
+      scoreCabecalho = scoreAtual + scorePendente;
+    }
+    // Muda o jogo para o estado correto e adiciona o score pendente de
+    // de verdade.
     if (timerGameover < 0)
     {
-      subestado = GAME_OVER;
+      if (nivel > NIVEL_MAX)
+      {
+        subestado = FIM_VITORIA;
+      }
+      else
+      {
+        subestado = FIM_GAMEOVER;
+      }
+      scoreAtual += scorePendente;
     }
-    // TODO: piscar fundo para indicar gameover.
-    desenharTodosOsObjetos();
     break;
   }
 
   // Normaliza o score.
-  if (score > MAX_SCORE)
+  if (scoreAtual > MAX_SCORE)
   {
-    score = MAX_SCORE;
+    scoreAtual = MAX_SCORE;
   }
 
   // Desenha o cabeçalho.
   werase(wCabecalho);
   wborder(wCabecalho, 0, 0, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE);
 
-  mvwprintw(wCabecalho, 1, 1, "SCORE:     %*d", PLACAR_SCORE, score);
-  if (score > highscore)
+  mvwprintw(wCabecalho, 1, 1, "SCORE:     %*d", PLACAR_SCORE, scoreCabecalho);
+  if (scoreAtual > highscore)
   {
-    highscore = score;
+    highscore = scoreAtual;
   }
   mvwprintw(wCabecalho, 2, 1, "HIGHSCORE: %*d", PLACAR_SCORE, highscore);
 
@@ -295,18 +309,8 @@ int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int h
   wnoutrefresh(wJogo);
   wnoutrefresh(wCabecalho);
 
-  // Retorna o score após o período de espera de game over ou
-  // $JOGO_CONTINUA.
-  int retorno;
-  if (subestado == GAME_OVER)
-  {
-    retorno = score;
-  }
-  else
-  {
-    retorno = JOGO_CONTINUA;
-  }
-  return retorno;
+  *score = scoreAtual;
+  return subestado;
 }
 
 /***
@@ -424,13 +428,13 @@ SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt)
         jogadorMorto = true;
         break;
       case BALAO:
-        score += BALAO_MORTO;
+        scoreAtual += BALAO_MORTO;
         numInimigosRestantes--;
         break;
       case MONSTRO:
         if (obj->estado == OBJ_MORTO)
         {
-          score += MONSTRO_MORTO;
+          scoreAtual += MONSTRO_MORTO;
         }
         numInimigosRestantes--;
         break;
@@ -512,15 +516,15 @@ SUBESTADO pausado(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   // Muda a seleção conforme a entrada do jogador.
   if (entrada->baixo && selecao == EM_JOGO)
   {
-    selecao = GAME_OVER;
+    selecao = FIM_GAMEOVER;
   }
-  else if (entrada->cima && selecao == GAME_OVER)
+  else if (entrada->cima && selecao == FIM_GAMEOVER)
   {
     selecao = EM_JOGO;
   }
   else if (entrada->retorna)
   {
-    selecao = GAME_OVER;
+    selecao = FIM_GAMEOVER;
   }
 
   // Desenha os objetos do jogo.
@@ -545,7 +549,7 @@ SUBESTADO pausado(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     voltarAttr = selecionadoAttr;
     flechaY = voltarY;
     break;
-  case GAME_OVER:
+  case FIM_GAMEOVER:
     sairAttr = selecionadoAttr;
     flechaY = sairY;
     break;
@@ -612,7 +616,7 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     if (timerMunicao < 0)
     {
       municao--;
-      score += FLECHA_EXTRA;
+      scoreAtual += FLECHA_EXTRA;
       timerMunicao += T_MUNICAO;
     }
   }
@@ -642,6 +646,7 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
   // Termina o jogo após o nível 10.
   if (nivel > NIVEL_MAX)
   {
+    scorePendente = BONUS_VITORIA;
     subestado = QUADRO_CONGELADO;
   }
 

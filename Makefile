@@ -47,15 +47,13 @@ common_flags = -I$(include_dir) -I$(lib_dir) -std=c99 -L. -lm
 linux64_compiler = c99
 linux64_lib_dir  = $(lib_dir)/linux64
 linux64_libs     = -lncursesw -lX11
-linux64_flags    = -D'_POSIX_C_SOURCE=199309L' -L$(linux64_lib_dir) \
-	-Wl,-rpath,'$$ORIGIN'
+linux64_flags    = 
 
 # Configurações específicas do Windows 64 bits.
 windows64_compiler = x86_64-w64-mingw32-gcc
 windows64_lib_dir  = $(lib_dir)/win64
 windows64_libs     = -lpdcurses 
-windows64_flags    = -D'PDC_DLL_BUILD' -D'PDC_WIDE' -D'PDC_FORCE_UTF8' \
-	-L$(windows64_lib_dir)
+windows64_flags    = -L$(windows64_lib_dir)
 
 # Escolhe quais flags de OS usar.
 OS ?= LINUX64

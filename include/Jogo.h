@@ -6,7 +6,21 @@
   e atualizar o estado do jogo em si.
 */
 
+#include <Configs.h>
 #include <TerminalIO.h>
+
+/*
+  Subestados em que o jogo pode estar.
+*/
+typedef enum subestados
+{
+  FIM_VITORIA,
+  FIM_GAMEOVER,
+  QUADRO_CONGELADO,
+  EM_JOGO,
+  PAUSADO,
+  TROCANDO_NIVEL,
+} SUBESTADO;
 
 /*
   Constante retornada por atualizarQuadroDoJogo se o jogo deve
@@ -15,10 +29,17 @@
 #define JOGO_CONTINUA -1
 
 /*
-  Atualiza um quadro do jogo. Retorna jogo continua se o jogo deve
-  continuar, retorna o score (>= 0) em caso de game over.
+  Atualiza um quadro do jogo baseado nas entradas do usuário, no tempo
+  passado desde o último quadro e no fato do jogo ter começado nesse
+  quadro ou em um quadro passado. Usa o highscore no cabeçalho.
+  Devolve o score atual através de score.
 */
-int atualizarQuadroDoJogo(ENTRADA *entrada, bool trocaDeEstado, double dt, int highscore);
+SUBESTADO atualizarQuadroDoJogo(
+    ENTRADA *entrada,
+    bool trocaDeEstado,
+    double dt,
+    int highscore,
+    int *score);
 
 /*
   Carrega os materiais que serão usado pelo jogo em si. Deve ser chamada

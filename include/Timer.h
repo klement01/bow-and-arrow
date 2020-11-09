@@ -5,6 +5,8 @@
   Define funções para marcar a passagem de tempo real.
 */
 
+#include <Configs.h>
+
 /*
   Reinicia / inicializa o timer.
 */

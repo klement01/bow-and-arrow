@@ -1,3 +1,4 @@
+#include <Configs.h>
 #include <Grafico.h>
 #include <Jogo.h>
 #include <Placar.h>
@@ -6,7 +7,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,6 +32,7 @@ typedef enum estado
   PLACAR,
   JOGO,
   GAMEOVER,
+  VITORIA,
   NOVO_SCORE
 } ESTADO;
 
@@ -39,9 +40,11 @@ ESTADO atualizarMenu(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarPlacar(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt);
+ESTADO atualizarVitoria(ENTRADA *entrada, bool trocaDeEstado, double dt);
 ESTADO atualizarNovoScore(ENTRADA *entrada, bool trocaDeEstado, double dt);
 
 void desenharPlacar(int *origy, int *origx, int *altura, int *largura);
+ESTADO desenharTelaDeFim(ESTADO estado, bool trocaDeEstado, double dt);
 bool validarChar(unsigned int ch);
 
 void carregarMateriais(void);
@@ -53,9 +56,6 @@ int main(void)
     Setup: carrega todos os recursos e configura os dados
     dos objetos (jogador, flechas, balões, etc.)
   */
-
-  // Configura locale para chars.
-  setlocale(LC_CTYPE, "");
 
   // Define o estado inicial do jogo.
   ESTADO estado = MENU;
@@ -119,6 +119,9 @@ int main(void)
       break;
     case GAMEOVER:
       estado = atualizarGameover(&entrada, trocaDeEstado, dt);
+      break;
+    case VITORIA:
+      estado = atualizarVitoria(&entrada, trocaDeEstado, dt);
       break;
     case NOVO_SCORE:
       estado = atualizarNovoScore(&entrada, trocaDeEstado, dt);
@@ -414,18 +417,22 @@ ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt)
   ESTADO estado = JOGO;
 
   // Atualiza o quadro e guarda o retorno.
-  int retorno = atualizarQuadroDoJogo(
+  SUBESTADO retorno = atualizarQuadroDoJogo(
       entrada,
       trocaDeEstado,
       dt,
-      placar.scores[0].score);
+      placar.scores[0].score,
+      &jogo.ultimoScore);
 
   // Se o retorno não for $JOGO_CONTINUA, o jogo acabou, e o retorno
   // é o score do jogador.
-  if (retorno != JOGO_CONTINUA)
+  if (retorno == FIM_GAMEOVER)
   {
     estado = GAMEOVER;
-    jogo.ultimoScore = retorno;
+  }
+  else if (retorno == FIM_VITORIA)
+  {
+    estado = VITORIA;
   }
 
   return estado;
@@ -445,20 +452,27 @@ ESTADO atualizarJogo(ENTRADA *entrada, bool trocaDeEstado, double dt)
 struct
 {
   GRAFICO gGameover;
-} gameover;
+  GRAFICO gVitoria;
+} fimDoJogo;
 
-ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt)
+ESTADO desenharTelaDeFim(ESTADO estado, bool trocaDeEstado, double dt)
 {
-  // O estado para o qual o jogo mudará quando a função retornar.
-  ESTADO estado = GAMEOVER;
-
-  // Variáveis persisntentes.
+  // Variáveis persistentes.
   static double gameoverTimer;
+  static GRAFICO *grafico;
 
   // Reinicia as variáveis no início do gameover.
   if (trocaDeEstado)
   {
     gameoverTimer = T_GAMEOVER;
+    if (estado == GAMEOVER)
+    {
+      grafico = &fimDoJogo.gGameover;
+    }
+    else
+    {
+      grafico = &fimDoJogo.gVitoria;
+    }
   }
 
   // Avança o timer e checa o score do jogador.
@@ -475,18 +489,45 @@ ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt)
     }
   }
 
-  // Desenha o gráfico de gameover.
+  // Desenha o gráfico correto.
   erase();
   box(stdscr, 0, 0);
   wattr_on(stdscr, A_BOLD, NULL);
   desenharGrafico(
-      &gameover.gGameover,
+      grafico,
       stdscr,
-      centralizarY(stdscr, gameover.gGameover.linhas),
-      centralizarX(stdscr, gameover.gGameover.colunas));
+      centralizarY(stdscr, grafico->linhas),
+      centralizarX(stdscr, grafico->colunas));
   wattr_off(stdscr, A_BOLD, NULL);
+  mvprintw(
+      centroY(stdscr) + grafico->linhas,
+      centralizarX(stdscr, 18),
+      "Score final: %*d",
+      PLACAR_SCORE,
+      jogo.ultimoScore);
 
+  // Adiciona a janela à fila para atualização.
   wnoutrefresh(stdscr);
+
+  return estado;
+}
+
+ESTADO atualizarGameover(ENTRADA *entrada, bool trocaDeEstado, double dt)
+{
+  // O estado para o qual o jogo mudará quando a função retornar.
+  ESTADO estado = GAMEOVER;
+
+  estado = desenharTelaDeFim(estado, trocaDeEstado, dt);
+
+  return estado;
+}
+
+ESTADO atualizarVitoria(ENTRADA *entrada, bool trocaDeEstado, double dt)
+{
+  // O estado para o qual o jogo mudará quando a função retornar.
+  ESTADO estado = VITORIA;
+
+  estado = desenharTelaDeFim(estado, trocaDeEstado, dt);
 
   return estado;
 }
@@ -669,7 +710,8 @@ void carregarMateriais(void)
   carregarMateriaisDoJogo();
 
   // Gameover.
-  carregarGrafico(&gameover.gGameover, "materiais/gameover.txt");
+  carregarGrafico(&fimDoJogo.gGameover, "materiais/gameover.txt");
+  carregarGrafico(&fimDoJogo.gVitoria, "materiais/vitoria.txt");
 }
 
 void descarregarMateriais(void)
@@ -687,5 +729,6 @@ void descarregarMateriais(void)
   descarregarMateriaisDoJogo();
 
   // Gameover.
-  descarregarGrafico(&gameover.gGameover);
+  descarregarGrafico(&fimDoJogo.gGameover);
+  descarregarGrafico(&fimDoJogo.gVitoria);
 }

@@ -7,6 +7,23 @@
 
 GRAFICO *carregarGrafico(GRAFICO *grafico, const char *caminho)
 {
+  carregarImagem(grafico, caminho);
+
+  // Altera a string para encontrar os atributos.
+  int len = strlen(caminho);
+  char *caminho_atr = (char *)malloc(sizeof(char) * (len + 1));
+  strcpy(caminho_atr, caminho);
+  strcpy(caminho_atr + len - 3, "att");
+
+  carregarAtributos(grafico, caminho_atr);
+
+  free(caminho_atr);
+
+  return grafico;
+}
+
+void carregarImagem(GRAFICO *grafico, const char *caminho)
+{
   // Tenta abrir um arquivo de gráfico,
   // fecha o programa se falhar.
   FILE *arquivo = fopen(caminho, "r");
@@ -119,7 +136,6 @@ GRAFICO *carregarGrafico(GRAFICO *grafico, const char *caminho)
   grafico->colunas = colunas;
   grafico->bytesPorLinha = bytesPorLinha;
   grafico->imagem = imagem;
-  return grafico;
 }
 
 void descarregarGrafico(GRAFICO *grafico)
@@ -135,10 +151,85 @@ void descarregarGrafico(GRAFICO *grafico)
     }
     free(grafico->imagem);
   }
+
+  // Libera o espaço alocado para os atributos.
+  if (grafico->atributos)
+  {
+    for (int i = 0; i < grafico->linhas; i++)
+    {
+      free(grafico->atributos[i]);
+      grafico->atributos[i] = NULL;
+    }
+    free(grafico->atributos);
+  }
+
+  // Zera os valores do gráfico.
   grafico->imagem = NULL;
+  grafico->atributos = NULL;
   grafico->linhas = 0;
   grafico->colunas = 0;
   grafico->bytesPorLinha = 0;
+}
+
+void carregarAtributos(GRAFICO *grafico, const char *caminho)
+{
+  // Tenta abrir um arquivo de atributos. Se falhar, inicializa
+  // os atributos com zero.
+  FILE *arquivo = fopen(caminho, "rb");
+
+  // Aloca espaço para os atributos e lê do arquivo ou inicializa
+  // com zero. Fecha o programa se falhar.
+  chtype **atributos = (chtype **)malloc(grafico->linhas * sizeof(chtype *));
+  if (!atributos)
+  {
+    fputs("Erro alocando espaço para atributos: ", stderr);
+    perror(caminho);
+    exit(EXIT_FAILURE);
+  }
+  for (int i = 0; i < grafico->linhas; i++)
+  {
+    // Aloca espaço para uma linha.
+    int tamanhoLinha = grafico->colunas * sizeof(chtype);
+    atributos[i] = (chtype *)malloc(tamanhoLinha);
+    if (!atributos[i])
+    {
+      fputs("Erro alocando espaço para atributos: ", stderr);
+      perror(caminho);
+      exit(EXIT_FAILURE);
+    }
+
+    // Tenta ler atributos para preencher o vetor de atributos, fecha
+    // o programa com um erro se não conseguir.
+    if (arquivo)
+    {
+      int numLidos = fread(
+          atributos[i],
+          1,
+          tamanhoLinha,
+          arquivo);
+      if (numLidos != tamanhoLinha)
+      {
+        fputs("Erro lendo atributos de: ", stderr);
+        perror(caminho);
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    // Se o arquivo não foi aberto, inicializa todos os atributos com 0.
+    else
+    {
+      memset(atributos[i], 0, tamanhoLinha);
+    }
+  }
+  
+  // Fecha o arquivo se ele foi aberto.
+  if (arquivo)
+  {
+    fclose(arquivo);
+  }
+
+  // Guarda os atributos no gráfico.
+  grafico->atributos = atributos;
 }
 
 void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x)
@@ -207,7 +298,7 @@ bool desenharGraficoComColisao(
         // Imprime o char e checa colisões;
         else
         {
-          waddch(win, byte);
+          waddch(win, byte | grafico->atributos[i][charX - x]);
           if (dst)
           {
             dst[charY * N_COLUNAS + charX] = true;
