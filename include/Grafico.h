@@ -73,8 +73,8 @@ bool desenharGraficoComColisao(
     WINDOW *win,
     int y,
     int x,
-    bool src[],
-    bool dst[]);
+    bool fonte[],
+    bool destino[]);
 
 /*
   Desenha o $grafico nas coordenadas de $janela.
@@ -92,8 +92,8 @@ bool desenharGraficoComColisaoLimitada(
     WINDOW *win,
     int y,
     int x,
-    bool src[],
-    bool dst[],
+    bool fonte[],
+    bool destino[],
     int jColisao,
     int iColisao);
 

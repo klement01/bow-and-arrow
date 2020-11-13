@@ -238,37 +238,40 @@ void carregarAtributos(GRAFICO *grafico, const char *caminho)
   grafico->atributos = atributos;
 }
 
+// Wrapper para gráfico sem colisão.
 void desenharGrafico(GRAFICO *grafico, WINDOW *win, int y, int x)
 {
   desenharGraficoComColisao(grafico, win, y, x, NULL, NULL);
 }
 
+// Wrapper para gráfico com colisão em todos os seus chars;
 bool desenharGraficoComColisao(
     GRAFICO *grafico,
     WINDOW *win,
     int y,
     int x,
-    bool src[],
-    bool dst[])
+    bool fonte[],
+    bool destino[])
 {
-  desenharGraficoComColisaoLimitada(
+  return desenharGraficoComColisaoLimitada(
       grafico,
       win,
       y,
       x,
-      src,
-      dst,
+      fonte,
+      destino,
       -1,
       -1);
 }
 
+// Gráfico com colisão em apenas um char (ex.: flechas.)
 bool desenharGraficoComColisaoLimitada(
     GRAFICO *grafico,
     WINDOW *win,
     int y,
     int x,
-    bool src[],
-    bool dst[],
+    bool fonte[],
+    bool destino[],
     int jColisao,
     int iColisao)
 {
@@ -336,13 +339,13 @@ bool desenharGraficoComColisaoLimitada(
           {
             // Configura a posição do char como verdadeira no vetor
             // de destino.
-            if (dst)
+            if (destino)
             {
-              dst[charY * N_COLUNAS + charX] = true;
+              destino[charY * N_COLUNAS + charX] = true;
             }
             // Checa se a posição do char é verdadeira no vetor de
             // origem.
-            if (src && src[charY * N_COLUNAS + charX])
+            if (fonte && fonte[charY * N_COLUNAS + charX])
             {
               houveColisao = true;
             }
