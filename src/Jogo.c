@@ -37,17 +37,17 @@
 
 // Nível máximo que o jogo pode atingir.
 // TODO: adicionar mais níveis.
-#define NIVEL_MAX 2
+#define NIVEL_MAX 10
 
 /***
- *      _______  _                    
- *     |__   __|(_)                   
- *        | |    _  _ __    ___   ___ 
+ *      _______  _
+ *     |__   __|(_)
+ *        | |    _  _ __    ___   ___
  *        | |   | || '_ \  / _ \ / __|
  *        | |   | || |_) || (_) |\__ \
  *        |_|   |_|| .__/  \___/ |___/
- *                 | |                
- *                 |_|                
+ *                 | |
+ *                 |_|
  */
 
 /*
@@ -99,25 +99,22 @@ typedef enum nivel
 */
 enum pontos
 {
-  BONUS_VITORIA = 5000,
+  BONUS_VITORIA = 10000,
   FLECHA_EXTRA = 50,
   BALAO_MORTO = 100,
   MONSTRO_MORTO = 200,
 };
 
 /***
- *     __      __           _    __               _      
- *     \ \    / /          (_)  /_/              (_)     
- *      \ \  / /__ _  _ __  _   __ _ __   __ ___  _  ___ 
+ *     __      __           _    __               _
+ *     \ \    / /          (_)  /_/              (_)
+ *      \ \  / /__ _  _ __  _   __ _ __   __ ___  _  ___
  *       \ \/ // _` || '__|| | / _` |\ \ / // _ \| |/ __|
  *        \  /| (_| || |   | || (_| | \ V /|  __/| |\__ \
  *         \/  \__,_||_|   |_| \__,_|  \_/  \___||_||___/
- *                                                       
- *                                                       
+ *
+ *
  */
-
-// Objeto do jogador.
-/* OBJETO *jogador; */
 
 // Protótipos de objetos do jogo, criados durante o carregamento
 // de materiais do jogo.
@@ -150,14 +147,14 @@ bool posFlecha[N_LINHAS_JOGO * N_COLUNAS];
 bool posMonstros[N_LINHAS_JOGO * N_COLUNAS];
 
 /***
- *      ______   _____        _               _                _ 
+ *      ______   _____        _               _                _
  *     |  ____| |  __ \      (_)             (_)              | |
  *     | |__    | |__) |_ __  _  _ __    ___  _  _ __    __ _ | |
  *     |  __|   |  ___/| '__|| || '_ \  / __|| || '_ \  / _` || |
  *     | | _    | |    | |   | || | | || (__ | || |_) || (_| || |
  *     |_|(_)   |_|    |_|   |_||_| |_| \___||_|| .__/  \__,_||_|
- *                                              | |              
- *                                              |_|              
+ *                                              | |
+ *                                              |_|
  */
 
 SUBESTADO emJogo(ENTRADA *entrada, bool trocaDeSubestado, double dt);
@@ -174,6 +171,9 @@ OBJETO *inserirObjetoEmSubvetor(OBJETO *objeto, OBJETO *vetor, int num);
 void limparVetorPosicao(bool vetor[]);
 bool limitarValor(double *valor, double vmin, double vmax, bool wrap);
 bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad);
+
+#define IGNORAR -127
+bool limitarVelocidadeDeObjeto(OBJETO *objeto, int xmin, int xmax, int ymin, int ymax);
 
 SUBESTADO atualizarQuadroDoJogo(
     ENTRADA *entrada,
@@ -251,7 +251,7 @@ SUBESTADO atualizarQuadroDoJogo(
     desenharTodosOsObjetos();
     timerGameover -= dt;
     // Efeito do score aumentando no fim do jogo.
-    scoreCabecalho += scorePendente * 2 * (T_GAMEOVER - timerGameover) / T_GAMEOVER;
+    scoreCabecalho += scorePendente * 1.5 * (T_GAMEOVER - timerGameover) / T_GAMEOVER;
     if (scoreCabecalho > scoreAtual + scorePendente)
     {
       scoreCabecalho = scoreAtual + scorePendente;
@@ -288,7 +288,7 @@ SUBESTADO atualizarQuadroDoJogo(
   wborder(wCabecalho, 0, 0, 0, 0, 0, 0, ACS_LTEE, ACS_RTEE);
 
   // Determina o nível, munição e high score que devem ser desenhados.
-  int municaoCabecalho = municao;
+  int municaoCabecalho = fmin(municao, 33);
   int nivelCabecalho = nivel;
   if (nivel > NIVEL_MAX)
   {
@@ -328,14 +328,14 @@ SUBESTADO atualizarQuadroDoJogo(
 }
 
 /***
- *      ______                       _  _  _                        
- *     |  ____|                     (_)| |(_)                       
- *     | |__      __ _  _   _ __  __ _ | | _   __ _  _ __  ___  ___ 
+ *      ______                       _  _  _
+ *     |  ____|                     (_)| |(_)
+ *     | |__      __ _  _   _ __  __ _ | | _   __ _  _ __  ___  ___
  *     |  __|    / _` || | | |\ \/ /| || || | / _` || '__|/ _ \/ __|
  *     | | _    | (_| || |_| | >  < | || || || (_| || |  |  __/\__ \
  *     |_|(_)    \__,_| \__,_|/_/\_\|_||_||_| \__,_||_|   \___||___/
- *                                                                  
- *                                                                  
+ *
+ *
  */
 
 /*
@@ -360,7 +360,17 @@ void criarInimigos(bool trocaDeSubestado, double dt)
     for (int i = 0; i < numInimigosRestantes; i++)
     {
       OBJETO *obj = inserirObjeto(&objBalao);
-      obj->x = LARGURA - 1 - (i + 1) * (obj->grafico.colunas + 1);
+      obj->x = LARGURA - 7 - i * (obj->grafico.colunas + 1);
+      // Aumenta a velocidade do balão dependendo do nível.
+      obj->vy += -2 * ((nivel - 1) / 2);
+      if (nivel >= 5)
+      {
+        obj->vy += -((rand() % (nivel - 1)) - (nivel - 1));
+      }
+      if (nivel >= 9)
+      {
+        obj->vx += (rand() % ((nivel - 1) / 2)) - ((nivel - 1) / 2);
+      }
       numInimigosParaCriar--;
     }
   }
@@ -374,6 +384,13 @@ void criarInimigos(bool trocaDeSubestado, double dt)
     {
       OBJETO *obj = inserirObjeto(&objMonstro);
       obj->y = 1 + rand() % (ALTURA - obj->grafico.linhas - 1);
+      // Aumenta a velocidade do monstro dependendo do nível.
+      obj->vx += -7 * (nivel / 2 - 1);
+      if (nivel >= 6)
+      {
+        obj->vy += (rand() % nivel) - (nivel / 2);
+      }
+      // Reinicia o contado de tempo do monstro.
       timerMonstros += T_MONSTROS;
       numInimigosParaCriar--;
     }
@@ -645,15 +662,15 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     if (nivel % 2 == 1)
     {
       tipoDoNivel = NIVEL_BALOES;
-      municao = 15;
+      municao = 14 + nivel;
       numInimigosRestantes = 15;
     }
     // Níveis pares têm monstros.
     else
     {
       tipoDoNivel = NIVEL_MONSTROS;
-      municao = 30;
-      numInimigosRestantes = 30;
+      numInimigosRestantes = 28 + nivel;
+      municao = numInimigosRestantes;
     }
   }
 
@@ -710,12 +727,24 @@ void atualizarTodosOsObjetos(double dt)
         {
         case BALAO:
           limitarPosicaoDeObjeto(obj, true, true);
+          limitarVelocidadeDeObjeto(
+              obj,
+              jogador->x + jogador->grafico.colunas + 1,
+              getmaxx(wJogo) - 1,
+              IGNORAR,
+              IGNORAR);
           break;
         case MONSTRO:
           if (limitarPosicaoDeObjeto(obj, false, true) && obj->x < 0)
           {
             obj->estado = OBJ_OOB;
           }
+          limitarVelocidadeDeObjeto(
+              obj,
+              IGNORAR,
+              IGNORAR,
+              1,
+              getmaxy(wJogo) - 1);
           break;
         case FLECHA:
           if (limitarPosicaoDeObjeto(obj, false, true) && obj->x > 0)
@@ -951,20 +980,51 @@ bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad)
   return novoY || novoX;
 }
 
+/*
+  Ajuda a velocidade de um objeto para que ele fique dentro das coordenadas
+  indicadas. Alguns testes podem ser ignorados com o valor IGNORAR..
+*/
+bool limitarVelocidadeDeObjeto(OBJETO *objeto, int xmin, int xmax, int ymin, int ymax)
+{
+  assert(xmin != IGNORAR || xmax != IGNORAR || ymin != IGNORAR || ymax != IGNORAR);
+  // Limita a posição e a velocidade $x.
+  if (xmin != IGNORAR && objeto->x < xmin)
+  {
+    objeto->x = xmin;
+    objeto->vx = fabs(objeto->vx);
+  }
+  else if (xmax != IGNORAR && objeto->x + objeto->grafico.colunas > xmax)
+  {
+    objeto->x = xmax - objeto->grafico.colunas;
+    objeto->vx = -fabs(objeto->vx);
+  }
+  // Limita a posição e a velocidade $y.
+  if (ymin != IGNORAR && objeto->y < ymin)
+  {
+    objeto->y = ymin;
+    objeto->vy = fabs(objeto->vy);
+  }
+  else if (ymax != IGNORAR && objeto->y + objeto->grafico.linhas > ymax)
+  {
+    objeto->y = ymax - objeto->grafico.linhas;
+    objeto->vy = -fabs(objeto->vy);
+  }
+}
+
 /***
- *      __  __           _                   _           _       
- *     |  \/  |         | |                 (_)         (_)      
- *     | \  / |   __ _  | |_    ___   _ __   _    __ _   _   ___ 
+ *      __  __           _                   _           _
+ *     |  \/  |         | |                 (_)         (_)
+ *     | \  / |   __ _  | |_    ___   _ __   _    __ _   _   ___
  *     | |\/| |  / _` | | __|  / _ \ | '__| | |  / _` | | | / __|
  *     | |  | | | (_| | | |_  |  __/ | |    | | | (_| | | | \__ \
  *     |_|  |_|  \__,_|  \__|  \___| |_|    |_|  \__,_| |_| |___/
- *                                                               
- *                                                               
+ *
+ *
  */
 void carregarMateriaisDoJogo(void)
 {
   objJogador.id = JOGADOR;
-  objJogador.x = 2;
+  objJogador.x = 4;
   objJogador.y = -127; // Deve ser definido quando criado.
   objJogador.vy = 15;
   carregarGrafico(&objJogador.grafico, "materiais/arqueiro.txt");
