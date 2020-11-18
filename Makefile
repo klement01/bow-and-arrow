@@ -9,7 +9,7 @@ lib_dir     = libs
 obj_dir     = obj
 
 # Configurações globais.
-CFLAGS += -I$(include_dir) -lm
+CFLAGS += -I$(include_dir) -lm -std=c99
 
 # Configurações exclusivas dos sistemas operacionais.
 WINDOWS ?= 0
@@ -18,17 +18,19 @@ ifeq ($(WINDOWS), 0)
 	default_cc = c99
 	CFLAGS += -lncursesw -lX11
 
-	obj_dir := $(obj_dir)/linux
+	obj_dir    := $(obj_dir)/linux
+	game_bin   := $(game_bin)-linux
+	editor_bin := $(editor_bin)-linux
 else
 	# Windows.
 	default_cc = x86_64-w64-mingw32-gcc
-	CFLAGS += -L$(lib_dir)
+	CFLAGS += -L.
 	CFLAGS += -lpdcurses
 	CFLAGS += -I$(lib_dir)
 
 	obj_dir    := $(obj_dir)/windows
-	game_bin   := $(game_bin).exe
-	editor_bin := $(editor_bin).exe
+	game_bin   := $(game_bin)-windows.exe
+	editor_bin := $(editor_bin)-windows.exe
 endif
 
 # Arquivos individuais (do jogo.)
@@ -42,7 +44,7 @@ RELEASE ?= 0
 ifeq ($(DEBUG), 1)
 	CFLAGS += -ggdb -O0
 else ifeq ($(RELEASE), 1)
-	CFLAGS += -D'NDEBUG' -g0 -O4
+	CFLAGS += -D'NDEBUG' -g0 -O3
 endif
 
 # Usa os parâmetros padrão ou definidos pelo usuário.

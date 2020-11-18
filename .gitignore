@@ -1,10 +1,5 @@
 .vscode
-build
-libs/PDCursesMod
-/libXCurses.so
-/pdcurses.dll
-/editor
-/editor.exe
 materiais/highscores.bin
 obj
 /bow-and-arrow*
+/editor*

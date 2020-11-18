@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // Número máximo de objetos que podem existir no jogo em um determinado
 // momento.
 #define MAX_FLECHAS_ATIVAS 5
@@ -361,7 +360,7 @@ void criarInimigos(bool trocaDeSubestado, double dt)
     for (int i = 0; i < numInimigosRestantes; i++)
     {
       OBJETO *obj = inserirObjeto(&objBalao);
-      obj->x = LARGURA - 5 - (i + 1) * (obj->grafico.colunas + 1);
+      obj->x = LARGURA - 1 - (i + 1) * (obj->grafico.colunas + 1);
       numInimigosParaCriar--;
     }
   }
@@ -647,7 +646,7 @@ SUBESTADO trocandoNivel(ENTRADA *entrada, bool trocaDeSubestado, double dt)
     {
       tipoDoNivel = NIVEL_BALOES;
       municao = 15;
-      numInimigosRestantes = 10;
+      numInimigosRestantes = 15;
     }
     // Níveis pares têm monstros.
     else
@@ -965,7 +964,7 @@ bool limitarPosicaoDeObjeto(OBJETO *objeto, bool wrap, bool pad)
 void carregarMateriaisDoJogo(void)
 {
   objJogador.id = JOGADOR;
-  objJogador.x = 6;
+  objJogador.x = 2;
   objJogador.y = -127; // Deve ser definido quando criado.
   objJogador.vy = 15;
   carregarGrafico(&objJogador.grafico, "materiais/arqueiro.txt");
