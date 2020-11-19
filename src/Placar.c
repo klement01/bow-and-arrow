@@ -18,8 +18,9 @@ FILE *lerScores(const char *caminho, TIPO_JOGADOR placar[], int *numScores)
       perror("Erro criando arquivo de scores");
       exit(EXIT_FAILURE);
     }
-    // Tenta reabir o arquivo criado para leitura.
-    arq = freopen(NULL, "r+", arq);
+    // Tenta reabrir o arquivo criado para leitura.
+    fclose(arq);
+    arq = fopen(caminho, "r+");
     // Se falhar, fecha o programa.
     if (!arq)
     {
